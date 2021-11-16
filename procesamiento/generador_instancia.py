@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
     #instancia = GeneradorInstancia(casos, servicios, abogados, padres)
 
-    #servicios, activos, tabla = instancia.inicializar_generador()
+    servicios, activos, tabla = instancia.inicializar_generador()
     #print(tabla)
     print(abogados.loc[14, ["declarados"]])
     print(abogados[["realizados", "cant", "promedio"]])
