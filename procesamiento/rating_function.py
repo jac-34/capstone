@@ -221,16 +221,11 @@ def process_ratings(lawyers, case, parents, register):
 def save_ratings(lawyers, services, parents, register, lawyer_decod, specialty_decod):
     r = process_ratings(lawyers, services, parents, register)
     service_decod = {key: value for key, value in specialty_decod.items() if key in services}
-    df = pd.DataFrame(index=lawyers_decod.values(), columns=services_decod.values())
+    df = pd.DataFrame(columns=lawyers_decod.values(), index=service_decod.values())
     for i in range(lawyers.shape[0]):
         lawyer = lawyers.loc[i, :]
         for service in services:
-            try:
-                df.loc[lawyer_decod[i], service_decod[service]] = rating(lawyer, service, parents, register)
-            except:
-                print(specialty_decod[service])
-                print(service in service_decod.keys())
-                print(service)
+            df.loc[service_decod[service], lawyer_decod[i]] = round(rating(lawyer, service, parents, register), 3)
     df.to_excel("ratings.xlsx")
 
 
@@ -267,9 +262,8 @@ if __name__ == "__main__":
     #    else: print(f"r_[{lawyer}, {service}] = {r[lawyer, service]}")
 
     ### Guardar puntajes de todos los abogados para todos los servicios ###
-    #save_ratings(abogados, servicios["id"], padres, register, lawyers_decod, services_decod)
-    print(len([key for key in services_decod.keys() if key in servicios["id"]]))
-    print(servicios.shape)
+    save_ratings(abogados, list(servicios["id"]), padres, register, lawyers_decod, services_decod)
+    print(lawyers_decod)
 
     #idx = 14
     #service = 10
