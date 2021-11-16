@@ -154,26 +154,26 @@ class GeneradorInstancia:
                     self.activos[(escenario, per)].append(servicio.ngen)
 
 
+if __name__ == "__main__":
+    file = open('servicios.pickle', 'rb')
+    servicios = pickle.load(file)
+    file.close()
 
-# Cargamos objetos
+    file = open('padres.pickle', 'rb')
+    padres = pickle.load(file)
+    file.close()
 
+    file = open('casos.pickle', 'rb')
+    casos = pickle.load(file)
+    file.close()
 
-file = open('servicios.pickle', 'rb')
-servicios = pickle.load(file)
-file.close()
+    file = open('abogados.pickle', 'rb')
+    abogados = pickle.load(file)
+    file.close()
 
-file = open('padres.pickle', 'rb')
-padres = pickle.load(file)
-file.close()
+    #instancia = GeneradorInstancia(casos, servicios, abogados, padres)
 
-file = open('casos.pickle', 'rb')
-casos = pickle.load(file)
-file.close()
-
-file = open('abogados.pickle', 'rb')
-abogados = pickle.load(file)
-file.close()
-
-instancia = GeneradorInstancia(casos, servicios, abogados, padres)
-
-servicios, activos, tabla = instancia.inicializar_generador()
+    #servicios, activos, tabla = instancia.inicializar_generador()
+    #print(tabla)
+    print(abogados.loc[14, ["declarados"]])
+    print(abogados[["realizados", "cant", "promedio"]])
