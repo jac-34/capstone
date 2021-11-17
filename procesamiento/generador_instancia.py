@@ -56,6 +56,7 @@ class GeneradorInstancia:
         self.fraccion = None  # fracción de tiempo entre periodo 0 y resto de semana
 
     def inicializar_generador(self):
+        random.seed(10)
 
         # Generación de servicios base
         molde = random.choice(self.lista_casos)
