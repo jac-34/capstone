@@ -1,16 +1,9 @@
-from os import name
-from mip.constants import MAX
 from generador_instancia import GeneradorInstancia
 from rating_function import process_ratings, global_register
 from parameters import *
-import numpy as np
-import pandas as pd
 import pickle
 from mip import Model, xsum, MAXIMIZE, BINARY, CONTINUOUS, CBC, maximize, OptimizationStatus
 import random
-
-### FIJAR SEMILLA ###
-random.seed(10)
 
 ### CARGAR DATOS ###
 file = open('servicios.pickle', 'rb')
