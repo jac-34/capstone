@@ -28,7 +28,6 @@ def area_servicio(id, padres):
         actual = padres[actual]
     return actual
 
-
 class Servicio:
 
     def __init__(self, id, ngen, servicios, padres, escenario, periodo):
@@ -39,6 +38,8 @@ class Servicio:
         self.escenario = escenario
         self.periodo = periodo
 
+    def __str__(self) -> str:
+        return f"s: {self.id}, e: {self.escenario}, ngen: {self.ngen}"
 
 class GeneradorInstancia:
 
@@ -173,7 +174,7 @@ if __name__ == "__main__":
 
     #instancia = GeneradorInstancia(casos, servicios, abogados, padres)
 
-    servicios, activos, tabla = instancia.inicializar_generador()
+    #servicios, activos, tabla = instancia.inicializar_generador()
     #print(tabla)
-    print(abogados.loc[14, ["declarados"]])
-    print(abogados[["realizados", "cant", "promedio"]])
+    #print(abogados.loc[14, ["declarados"]])
+    #print(abogados[["realizados", "cant", "promedio"]])

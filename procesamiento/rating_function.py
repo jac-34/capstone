@@ -255,25 +255,14 @@ if __name__ == "__main__":
     file.close()
 
     register = global_register(servicios, padres, abogados)
-    #r = process_ratings(abogados, casos[0], padres, register)
-    #for lawyer, service in r:
-    #    if r[lawyer, service] != 0:
-    #        print(f"r_[{lawyer}, {service}] = {r[lawyer, service]}")
-    #    else: print(f"r_[{lawyer}, {service}] = {r[lawyer, service]}")
+    case_idx = 0
+    r = process_ratings(abogados, casos[case_idx], padres, register)
+    for lawyer, service in r:
+        if r[lawyer, service] != 0:
+            print(f"r_[{lawyer}, {service}] = {r[lawyer, service]}")
+        else: print(f"r_[{lawyer}, {service}] = {r[lawyer, service]}")
 
     ### Guardar puntajes de todos los abogados para todos los servicios ###
     save_ratings(abogados, list(servicios["id"]), padres, register, lawyers_decod, services_decod)
     print(lawyers_decod)
-
-    #idx = 14
-    #service = 10
-    
-    #print(relative_domain(abogados.iloc[idx, :], service, padres))
-    #print(declared_score(abogados.iloc[idx, :], service, padres))
-    #print(observed_score(abogados.iloc[idx, :], service, padres, register))
-    #print(rating(abogados.iloc[idx, :], service, padres, register))
-
-    #instancia = GeneradorInstancia(casos, servicios, abogados, padres)
-
-    #servicios, activos, tabla = instancia.inicializar_generador()
     
