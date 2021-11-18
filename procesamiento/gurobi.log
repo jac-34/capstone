@@ -1,0 +1,38 @@
+
+Gurobi 8.0.1 (mac64, Python) logging started Wed Nov 17 18:58:35 2021
+
+
+Gurobi 8.0.1 (mac64, Python) logging started Thu Nov 18 09:02:58 2021
+
+Academic license - for non-commercial use only
+Read LP format model from file asignacion_abogados.lp
+Reading time = 0.03 seconds
+OBJROW: 6380 rows, 4880 columns, 13779 nonzeros
+Optimize a model with 6380 rows, 4880 columns and 13779 nonzeros
+Variable types: 2923 continuous, 1957 integer (0 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+08]
+  Objective range  [2e-02, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+01]
+Found heuristic solution: objective -1.1700000
+Presolve removed 6372 rows and 4864 columns
+Presolve time: 0.03s
+Presolved: 8 rows, 16 columns, 31 nonzeros
+Found heuristic solution: objective -70.7870000
+Variable types: 16 continuous, 0 integer (0 binary)
+
+Root relaxation: objective -7.554200e+01, 6 iterations, 0.00 seconds
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+*    0     0               0     -75.5420000  -75.54200  0.00%     -    0s
+
+Explored 0 nodes (6 simplex iterations) in 0.07 seconds
+Thread count was 4 (of 4 available processors)
+
+Solution count 2: -75.542 -70.787 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective -7.554200000000e+01, best bound -7.554200000000e+01, gap 0.0000%

@@ -55,11 +55,15 @@ class GeneradorInstancia:
         self.generados = 0  # cantidad de servicios generados
         self.fraccion = None  # fracción de tiempo entre periodo 0 y resto de semana
 
-    def inicializar_generador(self):
+    def inicializar_generador(self, base_case=None):
         random.seed(10)
+        np.random.seed(10)
 
         # Generación de servicios base
-        molde = random.choice(self.lista_casos)
+        if base_case:
+            molde = base_case
+        else:
+            molde = random.choice(self.lista_casos)
         llegada = random.choice([1, 2, 3, 4, 5])  # días de la semana
         if llegada != 5:
             self.fraccion = 1 - llegada/5

@@ -4,6 +4,7 @@ from parameters import *
 import pickle
 from mip import Model, xsum, MAXIMIZE, BINARY, CONTINUOUS, CBC, maximize, OptimizationStatus
 import random
+from greedy import greedy
 
 ### CARGAR DATOS ###
 file = open('servicios.pickle', 'rb')
@@ -32,34 +33,35 @@ file.close()
 
 ### SELECCIONAR CASO A SOLUCIONAR ###
 
-"""print(f"Seleccionar el caso a resolver: (numero entre el 0 al {len(cases) - 1})\n")
+print(f"Seleccionar el caso a resolver: (numero entre el 0 al {len(cases) - 1})\n")
 while True:
-    case_idx = input("Ingrese un numero: ")
-    if case_idx.isdigit():
-        if int(case_idx) < len(cases):
+    idx = input("Ingrese un numero: ")
+    if idx.isdigit():
+        if int(idx) < len(cases):
             break
         else:
             print(f"El numero debe estar entre 0 y {len(cases) - 1}")
     else:
         print("Se debe ingresar un numero")
-case_idx = int(case_idx)
-case = cases[case_idx]
-print("Los servicios de este caso son:")
-for service in case:
-    print(f"   - {specialties_decod[service]}.")"""
+idx = int(idx)
+case = cases[idx]
 
 
 ### GENERAR CASOS FUTUROS ###
-instance = GeneradorInstancia(cases, services, lawyers, parents, N=20)
-service_classes, active, table = instance.inicializar_generador()
+instance = GeneradorInstancia(cases, services, lawyers, parents, N=200)
+service_classes, active, table = instance.inicializar_generador(base_case=case)
 
 P = [i for i in range(1, instance.horizonte + 1)] # conjunto de periodos
 E = [i for i in range(1, instance.n_escenarios + 1)] # conjunto de escenarios
 L = [id for id in lawyers["id"]] # conjunto de abogados
 
 # active[scenario, period] = [active cases]
-case_ids = [s.id for s in service_classes if s.escenario == 0]
 s_ids = {s.ngen: s.id for s in service_classes}
+case_idx = [s.id for s in service_classes if s.escenario == 0]
+print("Caso a trabajar:")
+for id in case_idx:
+    print(f"   {id}: {specialties_decod[id]}")
+print()
 
 S = [s.ngen for s in service_classes]
 S0 = [s.ngen for s in service_classes if s.escenario == 0]
@@ -82,16 +84,18 @@ m = Model(name="Asignacion de abogados", sense=MAXIMIZE, solver_name=CBC)
 
 ## VARIABLES ##
 
-x = [[m.add_var(name=f"x_({l}, {s})", var_type=BINARY) for s in S] for l in L]
+x = [[m.add_var(name=f"x_{l}_{s}", var_type=BINARY) for s in S] for l in L]
 y = [m.add_var(name=f"y_{s}", var_type=CONTINUOUS) for s in S]
-t = [[m.add_var(name=f"t_({l}, {s})", var_type=CONTINUOUS) for s in S] for l in L]
-z = {(l, e, p): m.add_var(name=f"z_({l}, {e}, {p})") for p in P for e in E for l in L}
+t = [[m.add_var(name=f"t_{l}_{s}", var_type=CONTINUOUS) for s in S] for l in L]
+z = {(l, e, p): m.add_var(name=f"z_{l}_{e}_{p}", lb=0.0) for e, p in active.keys() for l in L}
 n = [m.add_var(name=f"n_{s}", lb=0) for s in S]
 
 ## FUNCION OBJETIVO ##
 m.objective = maximize(
-    xsum(H[s] * xsum(t[l][s] * r[l, s_ids[s]] for l in L) for s in S0) + 
-    1 / len(E) * xsum((LAMBDA ** p) * xsum(H[s] * xsum(t[l][s] * r[l, s_ids[s]] for l in L) 
+    xsum(H[s] * xsum(t[l][s] * r[l, s_ids[s]] for l in L) - BETA * (y[s] - 1)  - GAMMA * n[s] * H[s] * h[s] 
+    for s in S0) + 
+    1 / len(E) * xsum((LAMBDA ** p) * xsum(H[s] * xsum(t[l][s] * r[l, s_ids[s]] 
+    for l in L) - BETA * (y[s] - 1)  - GAMMA * n[s] * H[s] * h[s]
     for s in S_arrival[e, p]) for e, p in S_arrival.keys())
 )
 
@@ -108,30 +112,55 @@ for s in S:
 
     # R2 #
     for l in L:
-        m += T_MIN * x[l][s] <= t[l][s], f"r2.1_({l}, {s})"
-        m += M * x[l][s] >= t[l][s], f"r2.2_({l}, {s})"
+        m += T_MIN * x[l][s] <= t[l][s], f"r2.1_{l}_{s}"
+        m += M * x[l][s] >= t[l][s], f"r2.2_{l}_{s}"
 
         # R3 #
         if r[l, s_ids[s]] == 0:
-            m += x[l][s] == 0, f"r3_({l}, {s})"
+            m += x[l][s] == 0, f"r3_{l}_{s}"
 
 # R6 #
+#for l in L:
+#    for e in E:
+#        for p in P:
+#            m += z[l, e, p] == d[l] - xsum(t[l][s] for s in active[e, p]), f"R6_{l}_{e}_{p}"
+
 for l in L:
-    for e in E:
-        for p in P:
-            m += z[l, e, p] == d[l] - xsum(t[l][s] for s in active[e, p]), f"R6_({l}, {e}, {p})"
+    for e, p in active.keys():
+        m += z[l, e, p] == d[l] - xsum(t[l][s] for s in active[e, p]), f"R6_{l}_{e}_{p}"
 
-print("Modelo creado.")
+print("Modelo creado.\n")
+m.write("asignacion_abogados.lp")
 
-m.max_gap = 0.05
-status = m.optimize(max_seconds=300)
+m.max_gap = 3
+status = m.optimize(max_seconds=150)
 if status == OptimizationStatus.OPTIMAL:
     print('optimal solution cost {} found'.format(m.objective_value))
+            
 elif status == OptimizationStatus.FEASIBLE:
     print('sol.cost {} found, best possible: {}'.format(m.objective_value, m.objective_bound))
 elif status == OptimizationStatus.NO_SOLUTION_FOUND:
     print('no feasible solution found, lower bound is: {}'.format(m.objective_bound))
 
 
+for s in range(len(x[l])):
+    if s in S0:
+        for l in range(len(x)):
+            var = x[l][s]
+            if var.x > 0:
+                print(f"x_({l}, {s_ids[s]}) = {var.x}")
+                print(f"Tiempo del abogado {l}: {d[l]}")
+                print(f"Tiempo del servicio {s_ids[s]}: {h[s]}")
+                print(f"Tiempo asignado: {t[l][s].x}") 
+                print(f"spare time: {d[l] - t[l][s].x}")
+        print(f"n# de abogados asignados a {[s_ids[s]]}: {y[s].x}\n")
+fo_solver = sum(H[s] * sum(t[l][s].x * r[l, s_ids[s]] for l in L) for s in S0)
+print(f"FO del solver: {fo_solver}")
 
+
+greedy_sol, time, of = greedy(lawyers["id"], S0, s_ids, r, d, h, H)
+print("-------SOLUCION GREEDY-------")
+print(f"Valor funcion objetivo: {of}")
+for ngen, l_id in greedy_sol.items():
+    print(f"Servicio {s_ids[ngen]} asignado a {l_id}. {h[ngen]} hrs por {H[ngen]} semanas.")
 
