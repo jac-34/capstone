@@ -21,6 +21,7 @@ def has_time(s_id, l_id, h, H, time):
         if time[l_id, week] < h[s_id]:
             return False
     # Si estamos aqui, es porque el abogado tiene tiempo para todas las semanas
+    # y sera asignado al servicio
     for week in range(1, H[s_id] + 1):
         time[l_id, week] -= h[s_id]
     return True
@@ -58,7 +59,8 @@ def greedy(lawyers, S0, s_ids, r, d, h, H):
         ordered_lawyers = sorted(lawyers, key=lambda x: r[x, s_id], reverse=True)
         for l_id in ordered_lawyers:
             if has_time(ngen, l_id, h, H, time):
-                assignment[ngen] = l_id
-                of += h[ngen] * H[ngen] * r[l_id, s_id]
-                break
+                if r[l_id, s_id] > 0:
+                    assignment[ngen] = l_id
+                    of += h[ngen] * H[ngen] * r[l_id, s_id]
+                    break
     return assignment, time, of

@@ -36,3 +36,177 @@ Solution count 2: -75.542 -70.787
 
 Optimal solution found (tolerance 1.00e-04)
 Best objective -7.554200000000e+01, best bound -7.554200000000e+01, gap 0.0000%
+
+Gurobi 8.0.1 (mac64, Python) logging started Thu Nov 18 22:51:01 2021
+
+Academic license - for non-commercial use only
+Read LP format model from file asignacion_abogados.lp
+Reading time = 0.18 seconds
+OBJROW: 51850 rows, 42516 columns, 138459 nonzeros
+Optimize a model with 51850 rows, 42516 columns and 138459 nonzeros
+Variable types: 25680 continuous, 16836 integer (0 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+08]
+  Objective range  [2e-03, 1e+06]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 5e+01]
+Presolve removed 47497 rows and 38747 columns
+Presolve time: 2.40s
+Presolved: 4353 rows, 3769 columns, 12697 nonzeros
+Variable types: 1720 continuous, 2049 integer (2049 binary)
+Found heuristic solution: objective 8269764.2190
+
+Root relaxation: objective 1.560853e+06, 2981 iterations, 0.07 seconds
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 1560852.91    0  241 8269764.22 1560852.91  81.1%     -    2s
+H    0     0                    3179743.4390 1560852.91  50.9%     -    2s
+     0     0 1624720.41    0  367 3179743.44 1624720.41  48.9%     -    2s
+H    0     0                    2229749.6118 1624720.41  27.1%     -    3s
+     0     0 1624725.84    0  383 2229749.61 1624725.84  27.1%     -    3s
+     0     0 1639567.04    0  406 2229749.61 1639567.04  26.5%     -    3s
+H    0     0                    2079746.7432 1639567.04  21.2%     -    3s
+     0     0 1639663.75    0  449 2079746.74 1639663.75  21.2%     -    3s
+     0     0 1639671.01    0  449 2079746.74 1639671.01  21.2%     -    3s
+     0     0 1639834.71    0  468 2079746.74 1639834.71  21.2%     -    3s
+     0     0 1639834.71    0  392 2079746.74 1639834.71  21.2%     -    3s
+H    0     0                    1769750.1336 1639834.71  7.34%     -    4s
+H    0     0                    1769750.1299 1639834.71  7.34%     -    4s
+H    0     0                    1769749.9229 1639834.71  7.34%     -    4s
+H    0     0                    1759751.4736 1639834.71  6.81%     -    4s
+    22     1     cutoff    2      1759751.47 1659434.35  5.70%   376    5s
+H 3702   418                    1729749.1180 1729747.89  0.00%  10.3    8s
+
+Cutting planes:
+  Gomory: 80
+  Cover: 99
+  Implied bound: 11
+  MIR: 114
+  Flow cover: 161
+  Network: 1
+
+Explored 3702 nodes (46003 simplex iterations) in 9.20 seconds
+Thread count was 4 (of 4 available processors)
+
+Solution count 9: 1.72975e+06 1.75975e+06 1.76975e+06 ... 8.26976e+06
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.729749118000e+06, best bound 1.729747894474e+06, gap 0.0001%
+
+Gurobi 8.0.1 (mac64, Python) logging started Thu Nov 18 22:53:12 2021
+
+Academic license - for non-commercial use only
+Read LP format model from file asignacion_abogados.lp
+Reading time = 0.44 seconds
+OBJROW: 51850 rows, 42516 columns, 138459 nonzeros
+Optimize a model with 51850 rows, 42516 columns and 138459 nonzeros
+Variable types: 25680 continuous, 16836 integer (0 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+08]
+  Objective range  [2e-03, 1e+06]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 5e+01]
+Presolve removed 47497 rows and 38747 columns
+Presolve time: 2.61s
+Presolved: 4353 rows, 3769 columns, 12697 nonzeros
+Variable types: 1720 continuous, 2049 integer (2049 binary)
+Found heuristic solution: objective 8269764.2190
+
+Root relaxation: objective 1.560853e+06, 2981 iterations, 0.05 seconds
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 1560852.91    0  241 8269764.22 1560852.91  81.1%     -    3s
+H    0     0                    3179743.4390 1560852.91  50.9%     -    3s
+     0     0 1624720.41    0  367 3179743.44 1624720.41  48.9%     -    3s
+H    0     0                    2229749.6118 1624720.41  27.1%     -    3s
+     0     0 1624725.84    0  383 2229749.61 1624725.84  27.1%     -    3s
+     0     0 1639567.04    0  406 2229749.61 1639567.04  26.5%     -    3s
+H    0     0                    2079746.7432 1639567.04  21.2%     -    3s
+     0     0 1639663.75    0  449 2079746.74 1639663.75  21.2%     -    3s
+     0     0 1639671.01    0  449 2079746.74 1639671.01  21.2%     -    3s
+     0     0 1639834.71    0  468 2079746.74 1639834.71  21.2%     -    3s
+     0     0 1639834.71    0  392 2079746.74 1639834.71  21.2%     -    3s
+H    0     0                    1769750.1336 1639834.71  7.34%     -    4s
+H    0     0                    1769750.1299 1639834.71  7.34%     -    4s
+H    0     0                    1769749.9229 1639834.71  7.34%     -    4s
+H    0     0                    1759751.4736 1639834.71  6.81%     -    4s
+    72     7 1675029.89    2   17 1759751.47 1675029.89  4.81%   141    5s
+H 3702   418                    1729749.1180 1729747.89  0.00%  10.3    6s
+
+Cutting planes:
+  Gomory: 80
+  Cover: 99
+  Implied bound: 11
+  MIR: 114
+  Flow cover: 161
+  Network: 1
+
+Explored 3702 nodes (46003 simplex iterations) in 6.75 seconds
+Thread count was 4 (of 4 available processors)
+
+Solution count 9: 1.72975e+06 1.75975e+06 1.76975e+06 ... 8.26976e+06
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.729749118000e+06, best bound 1.729747894474e+06, gap 0.0001%
+
+Gurobi 8.0.1 (mac64, Python) logging started Thu Nov 18 22:56:03 2021
+
+Academic license - for non-commercial use only
+Read LP format model from file asignacion_abogados.lp
+Reading time = 0.89 seconds
+OBJROW: 51850 rows, 42516 columns, 138459 nonzeros
+Optimize a model with 51850 rows, 42516 columns and 138459 nonzeros
+Variable types: 25680 continuous, 16836 integer (0 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+08]
+  Objective range  [2e-03, 1e+06]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 5e+01]
+Presolve removed 47497 rows and 38747 columns
+Presolve time: 2.56s
+Presolved: 4353 rows, 3769 columns, 12697 nonzeros
+Variable types: 1720 continuous, 2049 integer (2049 binary)
+Found heuristic solution: objective 8269764.2190
+
+Root relaxation: objective 1.560853e+06, 2981 iterations, 0.06 seconds
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 1560852.91    0  241 8269764.22 1560852.91  81.1%     -    2s
+H    0     0                    3179743.4390 1560852.91  50.9%     -    3s
+     0     0 1624720.41    0  367 3179743.44 1624720.41  48.9%     -    3s
+H    0     0                    2229749.6118 1624720.41  27.1%     -    3s
+     0     0 1624725.84    0  383 2229749.61 1624725.84  27.1%     -    3s
+     0     0 1639567.04    0  406 2229749.61 1639567.04  26.5%     -    3s
+H    0     0                    2079746.7432 1639567.04  21.2%     -    3s
+     0     0 1639663.75    0  449 2079746.74 1639663.75  21.2%     -    3s
+     0     0 1639671.01    0  449 2079746.74 1639671.01  21.2%     -    3s
+     0     0 1639834.71    0  468 2079746.74 1639834.71  21.2%     -    3s
+     0     0 1639834.71    0  392 2079746.74 1639834.71  21.2%     -    3s
+H    0     0                    1769750.1336 1639834.71  7.34%     -    4s
+H    0     0                    1769750.1299 1639834.71  7.34%     -    4s
+H    0     0                    1769749.9229 1639834.71  7.34%     -    4s
+H    0     0                    1759751.4736 1639834.71  6.81%     -    4s
+   138    19 1686859.29   14    4 1759751.47 1686858.90  4.14%  81.6    5s
+H 3702   418                    1729749.1180 1729747.89  0.00%  10.3    6s
+
+Cutting planes:
+  Gomory: 80
+  Cover: 99
+  Implied bound: 11
+  MIR: 114
+  Flow cover: 161
+  Network: 1
+
+Explored 3702 nodes (46003 simplex iterations) in 6.71 seconds
+Thread count was 4 (of 4 available processors)
+
+Solution count 9: 1.72975e+06 1.75975e+06 1.76975e+06 ... 8.26976e+06
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.729749118000e+06, best bound 1.729747894474e+06, gap 0.0001%

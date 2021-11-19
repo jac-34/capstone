@@ -59,7 +59,7 @@ def relative_domain(lawyer, service, parents):
     """
     branch, _ = get_branch(service, parents)
     declared_domain = lawyer["declarados"]
-    if branch[-1] not in  lawyer["areas"]:
+    if branch[-1] not in lawyer["areas"]:
         return np.inf, ()
     else:
         lawyers_branches = [get_branch(specialty, parents)[0] for specialty in declared_domain]
@@ -108,7 +108,7 @@ def global_register(services, parents, lawyers):
         total_sum = 0
         total_done = 0
         no_history = True
-        for i in range(lawyers.shape[0]):
+        for i, _ in lawyers.iterrows():
             done, quant, avrge = lawyers.loc[i, ["realizados", "cant", "promedio"]]
             if service_id in done:
                 no_history = False
@@ -177,7 +177,7 @@ def observed_score(lawyer, service, parents, register, depth=3, tau=0.6, MAX_SCO
                 return wr(d_avrge, d_quant, register[d_service][0]) / MAX_SCORE
             branches[d_service] = get_branch(d_service, parents)
         match = False
-        for i in range(1, depth):
+        for i in range(1, max([depth, len(branch)])):
             total_sum = 0
             total_quant = 0
             for d_service, d_quant, d_avrge in zip(done, quant, avrge):
@@ -197,10 +197,10 @@ def rating(lawyer, service, parents, register, alpha=0.5, depth=3, tau=0.6):
     para un determinado servicio
     """
     OS = observed_score(lawyer, service, parents, register, depth, tau)
-    DS = declared_score(lawyer, service, parents, depth, tau)
+    DS = declared_score(lawyer, service, parents, depth=3, tau=tau)
     return alpha * OS + (1 - alpha) * DS
 
-def process_ratings(lawyers, case, parents, register):
+def process_ratings(lawyers, case, parents, register, alpha=0.5, depth=3, tau=0.6):
     """
     Calcula el rating de cada abogado para cada servicio en un caso.
     Retorna un diccionario con key una tupla (id_lawyer, id_service)
@@ -212,17 +212,17 @@ def process_ratings(lawyers, case, parents, register):
     case: lista con los id de los servicios que constituyen el caso
     """
     ratings = {}
-    for i in range(lawyers.shape[0]):
+    for i, _ in lawyers.iterrows():
         lawyer = lawyers.loc[i, :]
         for service in case:
-            ratings[(i, service)] = rating(lawyer, service, parents, register)
+            ratings[(i, service)] = rating(lawyer, service, parents, register, alpha, depth, tau)
     return ratings
 
 def save_ratings(lawyers, services, parents, register, lawyer_decod, specialty_decod):
     r = process_ratings(lawyers, services, parents, register)
     service_decod = {key: value for key, value in specialty_decod.items() if key in services}
     df = pd.DataFrame(columns=lawyers_decod.values(), index=service_decod.values())
-    for i in range(lawyers.shape[0]):
+    for i, _ in lawyers.iterrows():
         lawyer = lawyers.loc[i, :]
         for service in services:
             df.loc[service_decod[service], lawyer_decod[i]] = round(rating(lawyer, service, parents, register), 3)
