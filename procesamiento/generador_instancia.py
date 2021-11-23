@@ -10,8 +10,10 @@ import math
 
 def generar_caracteristicas(id, servicios, padres):
     '''
-    Recibe el id de un servicio junto al dataframe y
-    retorna caracteristicas del servicio
+    Recibe el id de un servicio junto al DataFrame de servicios
+    y la lista de padres
+
+    Retorna horas/semana, semanas y área del servicio en cuestión
     '''
     row = servicios[servicios['id'] == id]
     hsemanas = random.triangular(
@@ -23,25 +25,44 @@ def generar_caracteristicas(id, servicios, padres):
 
 
 def area_servicio(id, padres):
+    '''
+    Recibe id de un servicio y la lista de padres
+
+    Retorna el área del servicio 
+    '''
     actual = id
     while padres[actual] != -1:
         actual = padres[actual]
     return actual
 
 class Servicio:
+    '''
+    Clase que modela un servicio considerando
+    su id, su número de generación, características de tiempo, escenario
+    y periodo
+    '''
 
     def __init__(self, id, ngen, servicios, padres, escenario, periodo):
         self.id = id
         self.ngen = ngen
         self.hsemanas, self.semanas, self.area = generar_caracteristicas(
             id, servicios, padres)
+
+        # El escenario se fija como 0 para los servicios del caso base
         self.escenario = escenario
+
+        # El periodo se fija en -1 para los servicios del caso base,
+        # en 0 para los servicios que llegan entre el momento de llegada
+        # del caso base y el término de la semana laboral, y >= 1 para los demás
         self.periodo = periodo
 
     def __str__(self) -> str:
         return f"s: {self.id}, e: {self.escenario}, ngen: {self.ngen}"
 
 class GeneradorInstancia:
+    '''
+    Clase que genera una instancia del modelo
+    '''
 
     def __init__(self, casos, servicios, abogados, padres, N=1000, tasa=1.25):
         self.lista_casos = casos
@@ -56,14 +77,17 @@ class GeneradorInstancia:
         self.fraccion = None  # fracción de tiempo entre periodo 0 y resto de semana
 
     def inicializar_generador(self, base_case=None):
-        random.seed(10)
-        np.random.seed(10)
-
+        '''
+        Función que inicializa todo el generador. Puede recibir un caso base o 
+        generarse aleatoriamente
+        '''
+        
         # Generación de servicios base
         if base_case:
             molde = base_case
         else:
             molde = random.choice(self.lista_casos)
+
         llegada = random.choice([1, 2, 3, 4, 5])  # días de la semana
         if llegada != 5:
             self.fraccion = 1 - llegada/5
@@ -81,10 +105,11 @@ class GeneradorInstancia:
 
             self.servicios.append(servicio)
 
-        # Se agregan servicios base en diccionario de servicios activos
         self.horizonte = horizonte
         self.activos = {(e, p): [] for e in range(0, self.n_escenarios + 1)
                         for p in range(1, self.horizonte + 1)}
+        
+        # Se agregan servicios base en diccionario de servicios activos
         for s in self.servicios:
             for p in range(1, s.semanas + 1):
                 self.activos[(0, p)].append(s.ngen)
@@ -144,6 +169,11 @@ class GeneradorInstancia:
         return self.servicios, self.activos, self.tabla_abogados
 
     def generar_servicios(self, periodo, escenario, fraccion=1):
+        '''
+        Recibe el periodo de llegada y el escenario en cuestión
+
+        Agrega los servicios generados a self.servicios y self.activos
+        '''
         num_casos = np.random.poisson(fraccion * self.tasa)
         for n in range(num_casos):
             p = random.random()
@@ -156,7 +186,8 @@ class GeneradorInstancia:
                     id, self.generados, self.tabla_servicios, self.padres, escenario, periodo)
                 self.generados += 1
                 self.servicios.append(servicio)
-                for per in range(periodo + 1, self.horizonte + 1):
+                lim_sup = min(self.horizonte, periodo + servicio.semanas)
+                for per in range(periodo + 1, lim_sup + 1):
                     self.activos[(escenario, per)].append(servicio.ngen)
 
 
@@ -177,9 +208,9 @@ if __name__ == "__main__":
     abogados = pickle.load(file)
     file.close()
 
-    #instancia = GeneradorInstancia(casos, servicios, abogados, padres)
+    instancia = GeneradorInstancia(casos, servicios, abogados, padres)
 
-    #servicios, activos, tabla = instancia.inicializar_generador()
-    #print(tabla)
-    #print(abogados.loc[14, ["declarados"]])
-    #print(abogados[["realizados", "cant", "promedio"]])
+    servicios, activos, tabla = instancia.inicializar_generador()
+    print(tabla)
+    print(abogados.loc[14, ["declarados"]])
+    print(abogados[["realizados", "cant", "promedio"]])
