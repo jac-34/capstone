@@ -8,9 +8,6 @@ from greedy import greedy
 import numpy as np
 from os import abort
 
-random.seed(10)
-
-
 def load_data():
     """
     Carga los datos \\
@@ -213,7 +210,8 @@ def solve_model(m, max_gap=3, max_seconds=150):
         print('no feasible solution found, lower bound is: {}'.format(m.objective_bound))
 
 if __name__ == "__main__":
-
+    random.seed(10)
+    
     services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
     case = select_existing_case(cases)
     P, E, L, S, S0, S_arrival, active, r, s_ids, d, h, H = pre_process_data(case, cases, services, unfiltered_lawyers,
