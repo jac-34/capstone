@@ -11,3 +11,9 @@ GAMMA = 1000000
 
 # Factor de penalizacion temporal
 LAMBDA = 0.8
+
+# Número de escenarios a considerar
+NSCENARIOS = 200
+
+# Big M
+BIG_M = 10**8

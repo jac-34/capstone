@@ -64,7 +64,7 @@ class GeneradorInstancia:
     Clase que genera una instancia del modelo
     '''
 
-    def __init__(self, casos, servicios, abogados, padres, N=1000, tasa=1.25):
+    def __init__(self, casos, servicios, abogados, padres, N=100, tasa=1.25):
         self.lista_casos = casos
         self.tabla_servicios = servicios
         self.tabla_abogados = abogados
@@ -74,6 +74,7 @@ class GeneradorInstancia:
         self.servicios = []  # lista de objetos Servicio
         self.activos = {}  # diccionario que almacena servicios activos
         self.generados = 0  # cantidad de servicios generados
+        self.generados_base = 0 # cantidad de servicios generados base
         self.fraccion = None  # fracción de tiempo entre periodo 0 y resto de semana
 
     def inicializar_generador(self, base_case=None):
@@ -99,6 +100,7 @@ class GeneradorInstancia:
                                 self.tabla_servicios, self.padres,  0, -1)
             areas_base.add(servicio.area)
             self.generados += 1
+            self.generados_base += 1
 
             if servicio.semanas > horizonte:
                 horizonte = servicio.semanas
@@ -166,7 +168,7 @@ class GeneradorInstancia:
             for periodo in range(1, self.horizonte + 1):
                 self.generar_servicios(periodo, escenario)
 
-        return self.servicios, self.activos, self.tabla_abogados
+        # return self.servicios, self.activos, self.tabla_abogados
 
     def generar_servicios(self, periodo, escenario, fraccion=1):
         '''
@@ -192,6 +194,7 @@ class GeneradorInstancia:
 
 
 if __name__ == "__main__":
+
     file = open('servicios.pickle', 'rb')
     servicios = pickle.load(file)
     file.close()
@@ -208,9 +211,8 @@ if __name__ == "__main__":
     abogados = pickle.load(file)
     file.close()
 
+    np.random.seed(40)
+    random.seed(40)
+    
     instancia = GeneradorInstancia(casos, servicios, abogados, padres)
-
-    servicios, activos, tabla = instancia.inicializar_generador()
-    print(tabla)
-    print(abogados.loc[14, ["declarados"]])
-    print(abogados[["realizados", "cant", "promedio"]])
+    instancia.inicializar_generador()

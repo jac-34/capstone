@@ -1,8 +1,7 @@
-from os import register_at_fork
+# from os import register_at_fork
 import numpy as np
 from numpy.lib.npyio import save
 import pandas as pd
-import random
 import pickle
 from generador_instancia import GeneradorInstancia
 
@@ -177,7 +176,7 @@ def observed_score(lawyer, service, parents, register, depth=3, tau=0.6, MAX_SCO
                 return wr(d_avrge, d_quant, register[d_service][0]) / MAX_SCORE
             branches[d_service] = get_branch(d_service, parents)
         match = False
-        for i in range(1, max([depth, len(branch)])):
+        for i in range(1, min([depth, len(branch)])):
             total_sum = 0
             total_quant = 0
             for d_service, d_quant, d_avrge in zip(done, quant, avrge):
