@@ -131,7 +131,7 @@ class ILModel:
                 for p in range(1, ins.P + 1):
                     # R6
                     self.model.r6.add(
-                        self.model.z[l, e, p] == ins.d[l] - sum(self.model.t[l, s] for s in ins.active[e, p]))
+                        self.model.z[l, e, p] == ins.d[l] - sum(self.model.t[l, s] for s in ins.active[e, p] + ins.active[0, p]))
 
     def run(self, solver='gurobi'):
         print('comenzamos a resolver')
