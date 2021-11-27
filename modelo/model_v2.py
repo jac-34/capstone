@@ -5,6 +5,7 @@ import random
 import numpy as np
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
+import pandas as pd
 
 
 def load_data():
@@ -36,15 +37,14 @@ def load_data():
     unfiltered_lawyers = pickle.load(file)
     file.close()
 
-    file = open('../datos/decodificacion.pickle', 'rb')
-    specialties_decod = pickle.load(file)
-    file.close()
+    #file = open('../datos/decodificacion.pickle', 'rb')
+    #specialties_decod = pickle.load(file)
+    #file.close()
 
-    file = open('../datos/decod_nombres.pickle', 'rb')
-    lawyers_decod = pickle.load(file)
-    file.close()
-    return services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod
-
+    #file = open('../datos/decod_nombres.pickle', 'rb')
+    #lawyers_decod = pickle.load(file)
+    #file.close()
+    return services, parents, cases, unfiltered_lawyers#, specialties_decod, lawyers_decod
 
 def select_existing_case(cases):
     """
@@ -66,7 +66,6 @@ def select_existing_case(cases):
     idx = int(idx)
     case = cases[idx]
     return case
-
 
 class ILModel:
     def __init__(self, instance):
@@ -142,7 +141,7 @@ class ILModel:
 
 
 if __name__ == "__main__":
-    services, parents, cases, unfiltered_lawyers, _, _ = load_data()
+    services, parents, cases, unfiltered_lawyers = load_data()
     case = select_existing_case(cases)
 
     random.seed(40)
@@ -151,3 +150,34 @@ if __name__ == "__main__":
                                  parents, NSCENARIOS, RATE, LAMBDA, T_MIN, base_case=case)
     model = ILModel(instance)
     model.run()
+
+    X = model.model.x.get_values()
+    Y = model.model.y.get_values()
+    T = model.model.t.get_values()
+    Z = model.model.z.get_values()
+    N = model.model.n.get_values()
+
+    file = open('../datos/decodificacion.pickle', 'rb')
+    specialties_decod = pickle.load(file)
+    file.close()
+
+    file = open('../datos/decod_nombres.pickle', 'rb')
+    lawyers_decod = pickle.load(file)
+    file.close()
+    
+    cases_dict = {id: name for id, name in specialties_decod.items() if id in case}
+    assignment = {}
+
+    S0 = range(instance.S_0)
+    for s in S0:
+        assigned_lawyers = []
+        for l in instance.L:
+            if X[l, s] == 1:
+                assigned_lawyers.append(lawyers_decod[l])
+                print(T[l, s])
+                print(instance.h[l])
+        assignment[cases_dict[instance.ids[s]]] = assigned_lawyers
+
+    print(assignment)
+    
+

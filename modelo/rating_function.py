@@ -2,7 +2,6 @@ import numpy as np
 from numpy.lib.npyio import save
 import pandas as pd
 import pickle
-from generador_instancia import GeneradorInstancia
 
 def compute_level(specialty, parents):
     """

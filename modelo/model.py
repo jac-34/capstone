@@ -1,4 +1,4 @@
-from generador_instancia import GeneradorInstancia
+from instance_generator import InstanceGenerator
 from rating_function import process_ratings, global_register
 from parameters import *
 import pickle
@@ -72,7 +72,7 @@ def pre_process_data(case, cases, services, unfiltered_lawyers, parents,
     Pre procesa los datos
     """
     ### GENERAR CASOS FUTUROS ###
-    instance = GeneradorInstancia(cases, services, unfiltered_lawyers, parents, N=200)
+    instance = InstanceGenerator(cases, services, unfiltered_lawyers, parents, N=200)
     service_classes, active, lawyers = instance.inicializar_generador(base_case=case)
 
     ### REVISAR LA GENERACION DE LOS CONJUNTOS P Y E!!! ###
