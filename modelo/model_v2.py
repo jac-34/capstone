@@ -7,7 +7,10 @@ import numpy as np
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
 from copy import copy
+import pandas as pd
 from prettytable import PrettyTable
+from os import abort
+from tabulate import tabulate
 
 #### FUNCIONES ÚTILES ####
 
@@ -231,6 +234,27 @@ class ILModel:
     def reboot_model(self):
         pass
 
+def show_alternatives(instance, lawyers_decod, specialties_decod):
+    S0 = range(instance.S_0)
+    services = {s: f"{instance.ids[s]} ({instance.h[s]} h/s)" for s in S0}
+    columns = ["Lawyer", "Rating", "Time (h/s)"]
+    index = pd.MultiIndex.from_product([services.values(), columns])
+    df = pd.DataFrame(columns=index)
+    for s in S0:
+        s_id = instance.ids[s]
+        sorted_l = sorted(instance.L, key= lambda x: instance.r[x, instance.ids[s]], reverse=True)
+        for i, l in enumerate(sorted_l):
+            if instance.r[l, s_id] > 0:
+                df.loc[i, services[s]] = l, instance.r[l, s_id], instance.d[l, 1]
+            else:
+                break
+
+    #h = list(map('\n'.join, df.columns.tolist()))
+    #print(tabulate(df, tablefmt='psql', headers=h))
+    print(df.to_string())
+        
+            
+
 
 if __name__ == "__main__":
     services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
@@ -240,9 +264,13 @@ if __name__ == "__main__":
     np.random.seed(40)
     instance = InstanceGenerator(cases, services, unfiltered_lawyers,
                                  parents, NSCENARIOS, RATE, LAMBDA, T_MIN, base_cases=idx)
+
+    show_alternatives(instance, lawyers_decod, specialties_decod)
+
     model = ILModel(instance, specialties_decod, lawyers_decod)
     model.run_greedy()
     model.greedy_results()
+    abort()
     model.run_mip()
 
     X = model.model.x.get_values()
