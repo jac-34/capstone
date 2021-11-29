@@ -1,3 +1,4 @@
+from pyomo.core.base.set import AbstractFiniteSimpleRangeSet
 from parameters import *
 from instance_generator import InstanceGenerator
 import pickle
@@ -5,7 +6,10 @@ import random
 import numpy as np
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
-import pandas as pd
+from copy import copy
+from prettytable import PrettyTable
+
+#### FUNCIONES ÚTILES ####
 
 
 def load_data():
@@ -37,19 +41,21 @@ def load_data():
     unfiltered_lawyers = pickle.load(file)
     file.close()
 
-    #file = open('../datos/decodificacion.pickle', 'rb')
-    #specialties_decod = pickle.load(file)
-    #file.close()
+    file = open('../datos/decodificacion.pickle', 'rb')
+    specialties_decod = pickle.load(file)
+    file.close()
 
-    #file = open('../datos/decod_nombres.pickle', 'rb')
-    #lawyers_decod = pickle.load(file)
-    #file.close()
-    return services, parents, cases, unfiltered_lawyers#, specialties_decod, lawyers_decod
+    file = open('../datos/decod_nombres.pickle', 'rb')
+    lawyers_decod = pickle.load(file)
+    file.close()
+
+    return services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod
+
 
 def select_existing_case(cases):
     """
     Le pide al usuario un caso de la lista cases. 
-    Retorna una lista case = [s_id1, ..., s_idn] con los ids del caso.
+    Retorna un int con el índice del caso
     """
     #### SELECCIONAR CASO A SOLUCIONAR ####
     print(
@@ -64,13 +70,23 @@ def select_existing_case(cases):
         else:
             print("Se debe ingresar un numero")
     idx = int(idx)
-    case = cases[idx]
-    return case
+    return idx
+
 
 class ILModel:
-    def __init__(self, instance):
+    def __init__(self, instance, specialties_decod, lawyers_decod):
         # Cargamos la instancia
         self.charge_instance(instance)
+
+        # La guardamos
+        self.instance = instance
+
+        # Guardamos los decodificadores
+        self.sd = specialties_decod
+        self.ld = lawyers_decod
+
+        # Horas basales para los resultados usando greedy
+        self.z_greedy = copy(self.instance.d)
 
     def charge_instance(self, ins):
 
@@ -131,25 +147,103 @@ class ILModel:
                 for p in range(1, ins.P + 1):
                     # R6
                     self.model.r6.add(
-                        self.model.z[l, e, p] == ins.d[l] - sum(self.model.t[l, s] for s in ins.active[e, p] + ins.active[0, p]))
+                        self.model.z[l, e, p] == ins.d[l, p] - sum(self.model.t[l, s] for s in (ins.active[e, p] + ins.active[0, p])))
 
-    def run(self, solver='gurobi'):
-        print('comenzamos a resolver')
+    def run_mip(self, solver='gurobi'):
+        print('Comenzamos a resolver')
         opt = SolverFactory(solver)
+        opt.options['timelimit'] = 40
         opt.solve(self.model)
-        print(value(self.model.obj))
+
+    def has_time(self, l, s, div):
+        '''
+        Función que verifica si el abogado l tiene tiempo para
+        realizar el servicio s
+        '''
+
+        for p in range(1, self.instance.H[s] + 1):
+            if self.z_greedy[l, p] < self.instance.h[s] / div or self.instance.h[s] < self.instance.tmin:
+                return False
+        return True
+
+    def run_greedy(self):
+
+        # greedy_assignment[i] es una lista de abogados asignados al servicio i
+        self.greedy_assignment = []
+
+        # greedy_of[i] es el rating de asignación del caso i
+        self.greedy_of = []
+
+        base_cases = self.instance.base_cases
+        for case in base_cases:
+            of = 0
+            for s in case:
+                s_id = self.instance.ids[s]
+                filt = list(
+                    filter(lambda x: self.instance.r[x, s_id] > 0, self.instance.L))
+                ordered_lawyers = sorted(
+                    filt, key=lambda x: self.instance.r[x, s_id], reverse=True)
+                div = 1
+                sol = False
+                candidates = []
+                while self.instance.h[s] / div >= self.instance.tmin:
+                    if div > len(ordered_lawyers):
+                        break
+                    for idx in range(len(ordered_lawyers)):
+                        if self.has_time(ordered_lawyers[idx], s, div):
+                            candidates.append(ordered_lawyers[idx])
+                        if len(candidates) == div:
+                            sol = True
+                            break
+                    if sol:
+                        break
+                    div += 1
+                    candidates = []
+
+                for l in candidates:
+                    for p in range(1, self.instance.H[s] + 1):
+                        self.z_greedy[l, p] -= self.instance.h[s] / div
+                        of += (self.instance.h[s] * self.instance.H[s]
+                               * self.instance.r[l, s_id]) / div
+                self.greedy_assignment.append(candidates)
+            self.greedy_of.append(of)
+
+    def greedy_results(self, max_cases=3):
+        '''
+        Se imprime una tabla con los resultados de greedy
+
+        max_cases indica hasta cuántos casos se quiere imprimir
+        '''
+        limit = min(max_cases, len(self.instance.base_cases))
+        for idc in range(limit):
+            case = self.instance.base_cases[idc]
+            col_len = max([len(self.greedy_assignment[s]) for s in case])
+            table = PrettyTable()
+            table.title = f'CASO {idc + 1}'
+            for s in case:
+                col = [self.ld[l] for l in self.greedy_assignment[s]]
+                fill = [''] * (col_len - len(col))
+                table.add_column(
+                    f'{self.instance.ids[s]}: {self.instance.h[s]} h/s', col + fill)
+            print(table)
+            print(f'Rating: {self.greedy_of[idc]}')
+
+    def reboot_model(self):
+        pass
 
 
 if __name__ == "__main__":
-    services, parents, cases, unfiltered_lawyers = load_data()
-    case = select_existing_case(cases)
+    services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
+    idx = select_existing_case(cases)
 
     random.seed(40)
     np.random.seed(40)
     instance = InstanceGenerator(cases, services, unfiltered_lawyers,
-                                 parents, NSCENARIOS, RATE, LAMBDA, T_MIN, base_case=case)
-    model = ILModel(instance)
-    model.run()
+                                 parents, NSCENARIOS, RATE, LAMBDA, T_MIN, base_cases=idx)
+    model = ILModel(instance, specialties_decod, lawyers_decod)
+    model.run_greedy()
+    model.greedy_results()
+    model.run_mip()
 
     X = model.model.x.get_values()
     Y = model.model.y.get_values()
@@ -157,15 +251,8 @@ if __name__ == "__main__":
     Z = model.model.z.get_values()
     N = model.model.n.get_values()
 
-    file = open('../datos/decodificacion.pickle', 'rb')
-    specialties_decod = pickle.load(file)
-    file.close()
-
-    file = open('../datos/decod_nombres.pickle', 'rb')
-    lawyers_decod = pickle.load(file)
-    file.close()
-    
-    cases_dict = {id: name for id, name in specialties_decod.items() if id in case}
+    cases_dict = {id: name for id,
+                  name in specialties_decod.items() if id in cases[idx]}
     assignment = {}
 
     S0 = range(instance.S_0)
@@ -179,5 +266,3 @@ if __name__ == "__main__":
         assignment[cases_dict[instance.ids[s]]] = assigned_lawyers
 
     print(assignment)
-    
-

@@ -194,7 +194,7 @@ def rating(lawyer, service, parents, register, alpha=0.5, depth=3, tau=0.6):
     para un determinado servicio
     """
     OS = observed_score(lawyer, service, parents, register, depth, tau)
-    DS = declared_score(lawyer, service, parents, depth=3, tau=tau)
+    DS = declared_score(lawyer, service, parents, depth, tau=tau)
     return alpha * OS + (1 - alpha) * DS
 
 def process_ratings(lawyers, case, parents, register, alpha=0.5, depth=3, tau=0.6):
