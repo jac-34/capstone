@@ -10,7 +10,7 @@ class InstanceGenerator:
     Clase que genera una instancia del modelo
     '''
 
-    def __init__(self, cases, services, lawyers, parents, nscenarios, rate, lambd, tmin, base_cases=None, aleatory=True, nbase=1, arrival=1):
+    def __init__(self, cases, services, lawyers, parents, nscenarios, rate, lambd, tmin, base_cases=None, nbase=1, arrival=1):
         # Lista de casos
         self.cases = cases
 
@@ -66,7 +66,7 @@ class InstanceGenerator:
         # Lista de casos base (cada caso es una lista con los números de gen de los servicios)
         self.base_cases = []
 
-        self.create_instance(base_cases, aleatory, nbase, arrival)
+        self.create_instance(base_cases, nbase, arrival)
 
     def service_area(self, id):
         '''
@@ -124,7 +124,7 @@ class InstanceGenerator:
         Se generan casos y servicios base
         '''
         base_areas = set()
-        if isinstance(base_cases, int):
+        if not isinstance(base_cases, int):
             molds = [self.cases[base_cases]]
         else:
             molds = [random.choice(self.cases) for i in range(nbase)]
@@ -149,7 +149,7 @@ class InstanceGenerator:
             self.base_cases.append(case)
         return base_areas
 
-    def create_instance(self, base_cases, aleatory, nbase, arrival):
+    def create_instance(self, base_cases, nbase, arrival):
         '''
         Se genera una instancia del modelo
         '''
@@ -159,7 +159,7 @@ class InstanceGenerator:
 
         # Se diferencian las formas de generar servicios dependiento del
         # parámetro aleatory
-        if aleatory:
+        if not isinstance(base_cases, dict):
             base_areas = self.generate_base_services(base_cases, nbase)
         else:
             base_areas = set()
