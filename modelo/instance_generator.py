@@ -124,7 +124,7 @@ class InstanceGenerator:
         Se generan casos y servicios base
         '''
         base_areas = set()
-        if not isinstance(base_cases, int):
+        if isinstance(base_cases, int):
             molds = [self.cases[base_cases]]
         else:
             molds = [random.choice(self.cases) for i in range(nbase)]

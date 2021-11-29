@@ -255,14 +255,26 @@ if __name__ == "__main__":
                   name in specialties_decod.items() if id in cases[idx]}
     assignment = {}
 
+    for (l, e, p), z in Z.items():
+        if e < 3 and p < 3 and l < 3:
+            print(f"Z({l}, {e}, {p}) = {z}")
+
     S0 = range(instance.S_0)
     for s in S0:
+        s_id = instance.ids[s]
+        print(f"\n# de abogados asignados a {s_id}: {Y[s]}")
+        print(f"Tiempo del servicio {s_id}: {instance.h[s]}\n")
         assigned_lawyers = []
+
         for l in instance.L:
             if X[l, s] == 1:
                 assigned_lawyers.append(lawyers_decod[l])
-                print(T[l, s])
-                print(instance.h[l])
+                print(f"Tiempo asignado a {lawyers_decod[l]}: {T[l, s]} / {instance.d[l, 1]}")
         assignment[cases_dict[instance.ids[s]]] = assigned_lawyers
+        if Y[s] == 0:
+            print(f"Alternativas para {s_id}:")
+            sorted_l = sorted(instance.L, key= lambda x: instance.r[x, instance.ids[s]], reverse=True)
+            for i in range(len(sorted_l)):
+                print(f"{lawyers_decod[sorted_l[i]]}, r = {instance.r[sorted_l[i], instance.ids[s]]}, Z = {Z[sorted_l[i], 0, 1]}")
 
     print(assignment)
