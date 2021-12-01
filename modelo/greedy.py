@@ -1,66 +1,78 @@
-def has_time(s_id, l_id, h, H, time):
-    """
-    Determina si l_id tiene tiempo para realizar s_id.
-    En el caso de ser asi, le resta el tiempo que toma realizarlo
-    en el registro time.
-    ----------------------------------------------------------------
+
+from collections import defaultdict
+
+
+def can_do(instance, time, l, s, div, tmin):
+    '''
+    Se verifica si abogado l puede realizar servicio s según tiempo
+    disponible (time) y tiempo mínimo a asignar (tmin)
+    ---------------------------------------------------------------
     INPUT:
-        s_id: id del servicio
-        l_id: id del abogado
-        h: diccionario con key service_id que retorna cuantas hrs semanales
-        requiere el service_id
-        H: diccionario con key service_id que retorna cuantas semanas requiere
-        service_id
-        time: diccionario con key (l_id, week) que retorna cuantas hrs disponibles
-        tiene el abogado l_id en la semana week
-    
-    OUTPUT:
-        booleano que indica si el abogado tiene tiempo o no.
-    """
-    for week in range(1, H[s_id] + 1):
-        if time[l_id, week] < h[s_id]:
+        instance: objeto de clase instancia
+        l: índice abogado
+        s: número de generación del servicio
+        time: diccionario de key (l, p) y value tiempo en horas
+              disponibles del abogado l en el periodo p
+        div: divisor que se aplica al tiempo en horas/semana de un
+             servicio
+        tmin: tiempo mínimo que se puede asignar a un servicio
+
+    OUTPUT: booleano indicando si es posible que el abogado realice
+            el servicio o no
+    '''
+
+    for p in range(1, instance.H[s] + 1):
+        if time[l, p] < instance.h[s] / div or instance.h[s] / div < tmin:
             return False
-    # Si estamos aqui, es porque el abogado tiene tiempo para todas las semanas
-    # y sera asignado al servicio
-    for week in range(1, H[s_id] + 1):
-        time[l_id, week] -= h[s_id]
     return True
 
-def greedy(lawyers, S0, s_ids, r, d, h, H):
-    """
-    Resuelve el problema de asignacion mediante estrategia greedy
-    --------------------------------------------------------------
-    INPUT:
-        lawyers: lista con los ids de los abogados
-        case: lista con los ids de los servicios del caso
-        r: diccionario con key (l_id, s_id) que retorna el
-        rating del abogado l_id para el servicio s_id
-        d: diccionario con key l_id que retorna las hrs disponibles
-        semanales del abogado l_id
-        h: diccionario con key ngen que retorna cuantas hrs semanales
-        requiere el servicio ngen
-        H: diccionario con key ngen que retorna cuantas semanas requiere
-        el servicio ngen
 
+def run_greedy(instance, time_left):
+    '''
     OUTPUT:
-        assignment: diccionario con key ngen que retorna el l_id
-        asignado.
-        time: diccionario con key (l_id, week) que retorna cuanto
-        tiempo restante tiene l_id en la semana week.
-        of: objective function, valor de la asignacion realizada
-    """
-    assignment = {}
-    MAX_WEEKS = max(H.values())
-    time = {(l_id, week): d[l_id] for l_id in lawyers for week in range(1, MAX_WEEKS + 1)}
-    of = 0
-    for ngen in S0:
-        s_id = s_ids[ngen]
-        assignment[ngen] = None
-        ordered_lawyers = sorted(lawyers, key=lambda x: r[x, s_id], reverse=True)
-        for l_id in ordered_lawyers:
-            if has_time(ngen, l_id, h, H, time):
-                if r[l_id, s_id] > 0:
-                    assignment[ngen] = l_id
-                    of += h[ngen] * H[ngen] * r[l_id, s_id]
+        assignment: lista de listas tal que assignment[i] es una lista de abogados 
+                    asignados al servicio i
+        time_left: diccionario de key (l, p) y value tiempo en horas
+                   disponibles del abogado l en el periodo p
+        time_assigned: diccionario de key (l, p) y value tiempo en horas asignado al abogado 
+                       durante el periodo p
+        cases_rating: lista tal que cases_rating[j] es el rating de asignación del
+                      caso j
+    '''
+    assignment = []
+    cases_rating = []
+    time_assigned = defaultdict(int)
+
+    base_cases = instance.base_cases
+    for case in base_cases:
+        of = 0
+        for s in case:
+            s_id = instance.ids[s]
+            filt = list(
+                filter(lambda x: instance.r[x, s_id] > 0, instance.L))
+            ordered_lawyers = sorted(
+                filt, key=lambda x: instance.r[x, s_id], reverse=True)
+            div = 1
+            sol = False
+            candidates = []
+            while instance.h[s] / div >= instance.tmin and div <= len(ordered_lawyers):
+                for idx in range(len(ordered_lawyers)):
+                    if can_do(instance, time_left, ordered_lawyers[idx], s, div, instance.tmin):
+                        candidates.append(ordered_lawyers[idx])
+                    if len(candidates) == div:
+                        sol = True
+                        break
+                if sol:
                     break
-    return assignment, time, of
+                div += 1
+                candidates = []
+
+            for l in candidates:
+                for p in range(1, instance.H[s] + 1):
+                    time_left[l, p] -= instance.h[s] / div
+                    time_assigned[l, p] += instance.h[s] / div
+                of += (instance.h[s] * instance.H[s] * instance.r[l, s_id]) / div
+            assignment.append(candidates)
+        cases_rating.append(of)
+
+    return assignment, time_left, time_assigned, cases_rating

@@ -1,4 +1,4 @@
-# from pyomo.core.base.set import AbstractFiniteSimpleRangeSet
+from collections import defaultdict
 from parameters import *
 from instance_generator import InstanceGenerator
 import pickle
@@ -6,11 +6,10 @@ import random
 import numpy as np
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
-from copy import copy
 import pandas as pd
-from prettytable import PrettyTable
-from os import abort
 from tabulate import tabulate
+from greedy import run_greedy
+from copy import copy
 
 #### FUNCIONES ÚTILES ####
 
@@ -57,8 +56,8 @@ def load_data():
 
 def select_existing_case(cases):
     """
-    Le pide al usuario un caso de la lista cases. 
-    Retorna un int con el índice del caso
+    OUTPUT:
+        idx: índice del caso seleccionado tal que cases[idx] es el caso en cuestión
     """
     #### SELECCIONAR CASO A SOLUCIONAR ####
     print(
@@ -76,22 +75,97 @@ def select_existing_case(cases):
     return idx
 
 
+def show_alternatives(instance, lawyers_decod, specialties_decod):
+    S0 = range(instance.S_0)
+    services = {s: f"{instance.ids[s]} ({instance.h[s]} h/s)" for s in S0}
+    columns = ["Lawyer", "Rating", "Time (h/s)"]
+    index = pd.MultiIndex.from_product([services.values(), columns])
+    df = pd.DataFrame(columns=index)
+    for s in S0:
+        s_id = instance.ids[s]
+        sorted_l = sorted(
+            instance.L, key=lambda x: instance.r[x, instance.ids[s]], reverse=True)
+        for i, l in enumerate(sorted_l):
+            if instance.r[l, s_id] > 0:
+                df.loc[i, services[s]] = l, instance.r[l,
+                                                       s_id], instance.d[l, 1]
+            else:
+                break
+
+    #h = list(map('\n'.join, df.columns.tolist()))
+    #print(tabulate(df, tablefmt='psql', headers=h))
+    print(df.to_string())
+
+
+def verify_correctness(model, instance, assignment_mip, time_left_mip, assignment_greedy, time_left_greedy, cases_rating_mip, cases_rating_greedy):
+    '''
+    Función que verifica la correctitud del modelo de programación lineal y greedy
+    '''
+    case = instance.base_cases[0]
+    rating_mip = cases_rating_mip[0]
+    rating_greedy = cases_rating_greedy[0]
+    lawyers_time = {}
+    for s in case:
+        print(f'ASIGNADOS SERVICIO {s}')
+        div2 = len(assignment_mip[s])
+        print('**MIP**')
+        if div2 == 0:
+            print('No se asignaron abogados!\n')
+
+        for l in assignment_mip[s]:
+            print(f'Abogado N° {l}')
+            print(f'Tiempo basal: {instance.d[l, 1]} h/s ')
+            print(f'Tiempo destinado: {value(model.t[l, s])} h/s\n')
+
+            if ('mip', l) not in lawyers_time:
+                lawyers_time['mip', l] = instance.d[l, 1] - \
+                    value(model.t[l, s])
+            else:
+                lawyers_time['mip', l] -= value(model.t[l, s])
+
+        div = len(assignment_greedy[s])
+        print('**GREEDY**')
+        if div == 0:
+            print('No se asignaron abogados!\n')
+
+        for l in assignment_greedy[s]:
+            print(f'Abogado N° {l}')
+            print(f'Tiempo basal: {instance.d[l, 1]} h/s ')
+            print(f'Tiempo destinado: {instance.h[s] / div} h/s\n')
+
+            if ('greedy', l) not in lawyers_time:
+                lawyers_time['greedy', l] = instance.d[l, 1] - \
+                    instance.h[s] / div
+            else:
+                lawyers_time['greedy', l] -= instance.h[s] / div
+
+    print(f'RATING MIP: {rating_mip}')
+    print(f'RATING GREEDY: {rating_greedy}\n')
+
+    # Verificar si los tiempos restantes coinciden
+    for (est, l) in lawyers_time:
+        if est == 'mip':
+            time = time_left_mip[l, 1]
+        else:
+            time = time_left_greedy[l, 1]
+        if time != lawyers_time[est, l]:
+            print(
+                f'Tiempo restante de abogado {l} no coincide usando estrategia {est}!')
+            print(f'{time} v/s {lawyers_time[est, l]}\n')
+
+
 class ILModel:
-    def __init__(self, instance, specialties_decod, lawyers_decod):
-        # Cargamos la instancia
+    def __init__(self, instance):
+
+        # Al inicializarse por primera vez se carga la instancia
+        # internamente
         self.charge_instance(instance)
 
-        # La guardamos
-        self.instance = instance
-
-        # Guardamos los decodificadores
-        self.sd = specialties_decod
-        self.ld = lawyers_decod
-
-        # Horas basales para los resultados usando greedy
-        self.z_greedy = copy(self.instance.d)
-
     def charge_instance(self, ins):
+        '''
+        Función que carga una instancia y genera todas las restricciones
+        y variables del modelo
+        '''
 
         #### MODELO ####
         self.model = ConcreteModel()
@@ -100,15 +174,15 @@ class ILModel:
         self.model.x = Var(ins.L, range(ins.S), domain=Binary)
         self.model.y = Var(range(ins.S), domain=NonNegativeIntegers)
         self.model.t = Var(ins.L, range(ins.S), domain=NonNegativeReals)
-        self.model.z = Var(ins.L, range(1, ins.E + 1),
+        self.model.z = Var(ins.L, range(ins.E + 1),
                            range(1, ins.P + 1), domain=NonNegativeReals)
         self.model.n = Var(range(ins.S), domain=Binary)
+        self.model.R = Var(range(ins.S), domain=NonNegativeReals)
 
         #### FUNCIÓN OBJETIVO ####
-        self.model.obj = Objective(expr=sum(sum(self.model.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L) -
-                                   ins.beta * (self.model.y[s] - 1) - ins.gamma * self.model.n[s] for s in range(ins.S_0)) +
-                                   (1/ins.E) * sum((ins.lambd ** ins.sp[s]) * (sum(self.model.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L) -
-                                                                               ins.beta * (self.model.y[s] - 1) - ins.gamma * self.model.n[s]) for s in range(ins.S_0, ins.S)), sense=maximize)
+        self.model.obj = Objective(expr=sum(self.model.R[s] - ins.beta * (self.model.y[s] - 1) - ins.gamma * self.model.n[s] for s in range(ins.S_0)) +
+                                   (1/ins.E) * sum((ins.lambd ** ins.sp[s]) * (self.model.R[s] - ins.beta * (self.model.y[s] - 1) - ins.gamma * self.model.n[s])
+                                   for s in range(ins.S_0, ins.S)), sense=maximize)
 
         #### RESTRICCIONES ####
 
@@ -118,6 +192,7 @@ class ILModel:
         self.model.r4 = ConstraintList()
         self.model.r5 = ConstraintList()
         self.model.r6 = ConstraintList()
+        self.model.r7 = ConstraintList()
 
         for s in range(ins.S):
             # R1
@@ -145,164 +220,130 @@ class ILModel:
                 # R5
                 self.model.r5.add(self.model.n[s] <= 1 - self.model.x[l, s])
 
+        # R6
         for l in ins.L:
-            for e in range(1, ins.E + 1):
-                for p in range(1, ins.P + 1):
-                    # R6
+            for p in range(1, ins.P + 1):
+                self.model.r6.add(
+                    self.model.z[l, 0, p] == ins.d[l, p] - sum(self.model.t[l, s] for s in ins.active[0, p]))
+                for e in range(1, ins.E + 1):
                     self.model.r6.add(
-                        self.model.z[l, e, p] == ins.d[l, p] - sum(self.model.t[l, s] for s in (ins.active[e, p] + ins.active[0, p])))
+                        self.model.z[l, e, p] == self.model.z[l, 0, p] - sum(self.model.t[l, s] for s in ins.active[e, p]))
 
-    def run_mip(self, solver='gurobi'):
-        print('Comenzamos a resolver')
+        # R7 (definición de R)
+        for s in range(ins.S):
+            self.model.r7.add(self.model.R[s] == sum(
+                self.model.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L))
+
+        # Guardamos la instancia para después
+        self.instance = ins
+
+    def run_mip(self, solver='gurobi', time_limit=40):
+        '''
+        INPUT:
+            solver: se especifica que solver utilizar. El default es gurobi
+            time_limit: límite de tiempo para resolver el modelo
+        OUTPUT:
+            assignment: lista de listas tal que assignment[i] es una lista de abogados 
+                        asignados al servicio i
+            time_left: diccionario de key (l, p) y value tiempo en horas
+                       disponibles del abogado l en el periodo p
+            time_assigned: diccionario de key (l, p) y value tiempo en horas asignado al abogado 
+                           durante el periodo p
+            cases_rating: lista tal que cases_rating[j] es el rating de asignación del
+                          caso j
+        '''
+        print('Comenzamos a resolver\n')
+
+        #### ACÁ VA LA CONFIGURACIÓN DEL SOLVER ####
         opt = SolverFactory(solver)
-        opt.options['timelimit'] = 40
+        opt.options['timelimit'] = time_limit
+        ###########################################
+
         opt.solve(self.model)
 
-    def has_time(self, l, s, div):
-        '''
-        Función que verifica si el abogado l tiene tiempo para
-        realizar el servicio s
-        '''
+        # Se construyen estructuras a retornar
+        ins = self.instance
+        base_cases = ins.base_cases
+        assignment = []
+        time_left = {}
+        time_assigned = defaultdict(int)
+        cases_rating = []
 
-        for p in range(1, self.instance.H[s] + 1):
-            if self.z_greedy[l, p] < self.instance.h[s] / div or self.instance.h[s] < self.instance.tmin:
-                return False
-        return True
+        for l in ins.L:
+            for p in range(1, ins.P + 1):
+                time_left[l, p] = value(self.model.z[l, 0, p])
+            for s in range(ins.S_0):
+                if value(self.model.x[l, s]):
+                    for p in range(1, ins.H[s] + 1):
+                        time_assigned[l, p] += value(self.model.t[l, s])
 
-    def run_greedy(self):
-
-        # greedy_assignment[i] es una lista de abogados asignados al servicio i
-        self.greedy_assignment = []
-
-        # greedy_of[i] es el rating de asignación del caso i
-        self.greedy_of = []
-
-        base_cases = self.instance.base_cases
         for case in base_cases:
             of = 0
             for s in case:
-                s_id = self.instance.ids[s]
-                filt = list(
-                    filter(lambda x: self.instance.r[x, s_id] > 0, self.instance.L))
-                ordered_lawyers = sorted(
-                    filt, key=lambda x: self.instance.r[x, s_id], reverse=True)
-                div = 1
-                sol = False
-                candidates = []
-                while self.instance.h[s] / div >= self.instance.tmin:
-                    if div > len(ordered_lawyers):
-                        break
-                    for idx in range(len(ordered_lawyers)):
-                        if self.has_time(ordered_lawyers[idx], s, div):
-                            candidates.append(ordered_lawyers[idx])
-                        if len(candidates) == div:
-                            sol = True
-                            break
-                    if sol:
-                        break
-                    div += 1
-                    candidates = []
+                a = []
+                of += value(self.model.R[s])
+                for l in ins.L:
+                    if value(self.model.x[l, s]):
+                        a.append(l)
+                assignment.append(a)
+            cases_rating.append(of)
 
-                for l in candidates:
-                    for p in range(1, self.instance.H[s] + 1):
-                        self.z_greedy[l, p] -= self.instance.h[s] / div
-                        of += (self.instance.h[s] * self.instance.H[s]
-                               * self.instance.r[l, s_id]) / div
-                self.greedy_assignment.append(candidates)
-            self.greedy_of.append(of)
-
-    def greedy_results(self, max_cases=3):
-        '''
-        Se imprime una tabla con los resultados de greedy
-
-        max_cases indica hasta cuántos casos se quiere imprimir
-        '''
-        limit = min(max_cases, len(self.instance.base_cases))
-        for idc in range(limit):
-            case = self.instance.base_cases[idc]
-            col_len = max([len(self.greedy_assignment[s]) for s in case])
-            table = PrettyTable()
-            table.title = f'CASO {idc + 1}'
-            for s in case:
-                col = [self.ld[l] for l in self.greedy_assignment[s]]
-                fill = [''] * (col_len - len(col))
-                table.add_column(
-                    f'{self.instance.ids[s]}: {self.instance.h[s]} h/s', col + fill)
-            print(table)
-            print(f'Rating: {self.greedy_of[idc]}')
-
-    def reboot_model(self):
-        pass
-
-def show_alternatives(instance, lawyers_decod, specialties_decod):
-    S0 = range(instance.S_0)
-    services = {s: f"{instance.ids[s]} ({instance.h[s]} h/s)" for s in S0}
-    columns = ["Lawyer", "Rating", "Time (h/s)"]
-    index = pd.MultiIndex.from_product([services.values(), columns])
-    df = pd.DataFrame(columns=index)
-    for s in S0:
-        s_id = instance.ids[s]
-        sorted_l = sorted(instance.L, key= lambda x: instance.r[x, instance.ids[s]], reverse=True)
-        for i, l in enumerate(sorted_l):
-            if instance.r[l, s_id] > 0:
-                df.loc[i, services[s]] = l, instance.r[l, s_id], instance.d[l, 1]
-            else:
-                break
-
-    #h = list(map('\n'.join, df.columns.tolist()))
-    #print(tabulate(df, tablefmt='psql', headers=h))
-    print(df.to_string())
-        
-            
+        return assignment, time_left, time_assigned, cases_rating
 
 
 if __name__ == "__main__":
     services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
     idx = select_existing_case(cases)
 
-    random.seed(40)
-    np.random.seed(40)
+    random.seed(7)
+    np.random.seed(7)
     instance = InstanceGenerator(cases, services, unfiltered_lawyers,
-                                 parents, NSCENARIOS, RATE, LAMBDA, T_MIN, base_cases=idx)
+                                 parents, NSCENARIOS, RATE, LAMBDA, T_MIN, POND, base_cases=idx)
 
     show_alternatives(instance, lawyers_decod, specialties_decod)
 
-    model = ILModel(instance, specialties_decod, lawyers_decod)
-    model.run_greedy()
-    model.greedy_results()
-    abort()
-    model.run_mip()
+    model = ILModel(instance)
 
-    X = model.model.x.get_values()
-    Y = model.model.y.get_values()
-    T = model.model.t.get_values()
-    Z = model.model.z.get_values()
-    N = model.model.n.get_values()
+    assignment_mip, time_left_mip, _, cases_rating_mip = model.run_mip()
+    assignment_greedy, time_left_greedy, _, cases_rating_greedy = run_greedy(
+        instance, copy(instance.d))
 
-    cases_dict = {id: name for id,
-                  name in specialties_decod.items() if id in cases[idx]}
-    assignment = {}
+    verify_correctness(model.model, instance, assignment_mip, time_left_mip,
+                       assignment_greedy, time_left_greedy, cases_rating_mip, cases_rating_greedy)
 
-    for (l, e, p), z in Z.items():
-        if e < 3 and p < 3 and l < 3:
-            print(f"Z({l}, {e}, {p}) = {z}")
+    # X = model.model.x.get_values()
+    # Y = model.model.y.get_values()
+    # T = model.model.t.get_values()
+    # Z = model.model.z.get_values()
+    # N = model.model.n.get_values()
 
-    S0 = range(instance.S_0)
-    for s in S0:
-        s_id = instance.ids[s]
-        print(f"\n# de abogados asignados a {s_id}: {Y[s]}")
-        print(f"Tiempo del servicio {s_id}: {instance.h[s]}\n")
-        assigned_lawyers = []
+    # cases_dict = {id: name for id,
+    #               name in specialties_decod.items() if id in cases[idx]}
+    # assignment = {}
 
-        for l in instance.L:
-            if X[l, s] == 1:
-                assigned_lawyers.append(lawyers_decod[l])
-                print(f"Tiempo asignado a {lawyers_decod[l]}: {T[l, s]} / {instance.d[l, 1]}")
-        assignment[cases_dict[instance.ids[s]]] = assigned_lawyers
-        if Y[s] == 0:
-            print(f"Alternativas para {s_id}:")
-            sorted_l = sorted(instance.L, key= lambda x: instance.r[x, instance.ids[s]], reverse=True)
-            for i in range(len(sorted_l)):
-                print(f"{lawyers_decod[sorted_l[i]]}, r = {instance.r[sorted_l[i], instance.ids[s]]}, Z = {Z[sorted_l[i], 0, 1]}")
+    # for (l, e, p), z in Z.items():
+    #     if e < 3 and p < 3 and l < 3:
+    #         print(f"Z({l}, {e}, {p}) = {z}")
 
-    print(assignment)
+    # S0 = range(instance.S_0)
+    # for s in S0:
+    #     s_id = instance.ids[s]
+    #     print(f"\n# de abogados asignados a {s_id}: {Y[s]}")
+    #     print(f"Tiempo del servicio {s_id}: {instance.h[s]}\n")
+    #     assigned_lawyers = []
+
+    #     for l in instance.L:
+    #         if X[l, s] == 1:
+    #             assigned_lawyers.append(lawyers_decod[l])
+    #             print(
+    #                 f"Tiempo asignado a {lawyers_decod[l]}: {T[l, s]} / {instance.d[l, 1]}")
+    #     assignment[cases_dict[instance.ids[s]]] = assigned_lawyers
+    #     if Y[s] == 0:
+    #         print(f"Alternativas para {s_id}:")
+    #         sorted_l = sorted(
+    #             instance.L, key=lambda x: instance.r[x, instance.ids[s]], reverse=True)
+    #         for i in range(len(sorted_l)):
+    #             print(
+    #                 f"{lawyers_decod[sorted_l[i]]}, r = {instance.r[sorted_l[i], instance.ids[s]]}, Z = {Z[sorted_l[i], 0, 1]}")
+
+    # print(assignment)

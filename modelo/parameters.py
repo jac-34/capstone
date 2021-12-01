@@ -14,3 +14,6 @@ BIG_M = 10**8
 
 # Tasa de llegada de casos
 RATE = 1.25
+
+# Ponderador relación beta y gamma
+POND = 10

@@ -10,7 +10,7 @@ class InstanceGenerator:
     Clase que genera una instancia del modelo
     '''
 
-    def __init__(self, cases, services, lawyers, parents, nscenarios, rate, lambd, tmin, base_cases=None, nbase=1, arrival=1):
+    def __init__(self, cases, services, lawyers, parents, nscenarios, rate, lambd, tmin, pond, base_cases=None, nbase=1, arrival=1):
         # Lista de casos
         self.cases = cases
 
@@ -62,6 +62,7 @@ class InstanceGenerator:
         # Otros parámetros
         self.lambd = lambd
         self.tmin = tmin
+        self.pond = pond
 
         # Lista de casos base (cada caso es una lista con los números de gen de los servicios)
         self.base_cases = []
@@ -70,9 +71,9 @@ class InstanceGenerator:
 
     def service_area(self, id):
         '''
-        Recibe id de un servicio y la lista de padres
-
-        Retorna el área del servicio 
+        OUTPUT:
+            current: área a la que pertenece el servicio con identificador
+                     id
         '''
         current = id
         while self.parents[current] != -1:
@@ -81,10 +82,11 @@ class InstanceGenerator:
 
     def generate_service(self, id):
         '''
-        Recibe el id de un servicio junto al DataFrame de servicios
-        y la lista de padres
-
-        Retorna horas/semana, semanas y área del servicio en cuestión
+        Se generan las características del servicio de identificador id
+        ------------------------------------------------------------------
+        OUTPUT:
+            hweeks: horas/semana que requiere el servicio de identificador id
+            weeks: horas que requiere el servicio
         '''
         row = self.services[self.services['id'] == id]
         hweeks = random.triangular(
@@ -95,9 +97,8 @@ class InstanceGenerator:
 
     def generate_services(self, period, scenario, frac=1):
         '''
-        Recibe el periodo de llegada y el escenario en cuestión
-
-        Agrega los servicios generados a self.activos
+        Se generan las características de los servicios que llegan 
+        en un periodo y escenario determinado
         '''
         num = np.random.poisson(frac * self.rate)
         for n in range(num):
@@ -121,7 +122,10 @@ class InstanceGenerator:
 
     def generate_base_services(self, base_cases, nbase):
         '''
-        Se generan casos y servicios base
+        Se generan los servicios base de la instancia (útil para simulación)
+        ---------------------------------------------------------------------
+        OUTPUT:
+            base_areas: unión de áreas asociadas a los casos base
         '''
         base_areas = set()
         if isinstance(base_cases, int):
@@ -151,7 +155,7 @@ class InstanceGenerator:
 
     def create_instance(self, base_cases, nbase, arrival):
         '''
-        Se genera una instancia del modelo
+        Se genera la instancia a utilizar en el modelo
         '''
         # Aprovechamos de calcular beta
         self.beta = 0
@@ -235,7 +239,7 @@ class InstanceGenerator:
                 self.generate_services(p, e)
 
         # Aprovechamos de calcular gamma
-        self.gamma = (self.S + 1) * self.beta
+        self.gamma = self.pond * self.beta
 
         # Calculamos rating
         register = global_register(self.services, self.parents, lawyers)
@@ -319,7 +323,7 @@ class InstanceGenerator:
                 self.generate_services(p, e)
 
         # Aprovechamos de calcular gamma
-        self.gamma = (self.S + 1) * self.beta
+        self.gamma = self.pond * self.beta
 
         # Calculamos rating
         register = global_register(self.services, self.parents, lawyers)
