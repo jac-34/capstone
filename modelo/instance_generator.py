@@ -105,7 +105,7 @@ class InstanceGenerator:
             p = random.random()
             if p > self.prob:
                 continue
-            mold = random.choice(self.cases)
+            mold = random.choice(self.selected_cases)
 
             for id in mold:
                 hweeks, weeks = self.generate_service(id)
@@ -122,7 +122,7 @@ class InstanceGenerator:
 
     def generate_base_services(self, base_cases, nbase):
         '''
-        Se generan los servicios base de la instancia (útil para simulación)
+        Se generan los servicios base de la instancia
         ---------------------------------------------------------------------
         OUTPUT:
             base_areas: unión de áreas asociadas a los casos base
@@ -228,8 +228,8 @@ class InstanceGenerator:
         # Probabilidad de elegir algún caso
         self.prob = len(new_cases) / len(self.cases)
 
-        # Actualizamos la lista de casos
-        self.cases = new_cases
+        # Guardamos lista de casos a utilizar
+        self.selected_cases = new_cases
 
         # Generamos todos los escenarios
         for e in range(1, self.E + 1):
@@ -246,7 +246,7 @@ class InstanceGenerator:
         self.r = process_ratings(lawyers, list(
             set(self.ids)), self.parents, register, depth=100)
 
-    def reboot_instance(self, d, nbase, arrival):
+    def reboot_instance(self, d, base_cases, arrival):
         '''
         Función que reinicia la instancia (útil para simulación)
         '''
@@ -259,6 +259,7 @@ class InstanceGenerator:
         self.active = defaultdict(list)
         self.ids = []
         self.sp = {}
+        self.base_cases = []
 
         # diccionario previamente modificado
         self.d = d
@@ -267,8 +268,27 @@ class InstanceGenerator:
         self.beta = 0
         frac = 1 - arrival/5
 
-        # Se crean las base areas
-        base_areas = self.generate_base_services(None, nbase)
+        # Se identifican áreas base
+        base_areas = set()
+        for case in base_cases:
+            c = []
+            for id in case:
+                hweeks, weeks = case[id]
+                area = self.service_area(id)
+                base_areas.add(area)
+                self.h.append(hweeks)
+                self.H.append(weeks)
+                self.ids.append(id)
+                c.append(self.S)
+                if weeks > self.P:
+                    self.P = weeks
+                if hweeks * weeks > self.beta:
+                    self.beta = hweeks * weeks
+                for per in range(1, weeks + 1):
+                    self.active[(0, per)].append(self.S)
+                self.S += 1
+                self.S_0 += 1
+            self.base_cases.append(c)
 
         # Se dividen los abogados en áreas
         lawyers_to_areas = defaultdict(list)
@@ -312,8 +332,8 @@ class InstanceGenerator:
         # Probabilidad de elegir algún caso
         self.prob = len(new_cases) / len(self.cases)
 
-        # Actualizamos la lista de casos
-        self.cases = new_cases
+        # Guardamos lista de casos a utilizar
+        self.selected_cases = new_cases
 
         # Generamos todos los escenarios
         for e in range(1, self.E + 1):

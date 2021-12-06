@@ -1,5 +1,4 @@
-a = [2, 4, 3]
+import numpy as np
 
-b = list(filter(lambda x: x > 2, a))
-print(b)
-print(a)
+
+print(np.random.poisson(0.25))
