@@ -161,9 +161,8 @@ class InstanceGenerator:
         self.beta = 0
         frac = 1 - arrival/5
 
-        # Se diferencian las formas de generar servicios dependiento del
-        # parámetro aleatory
-        if not isinstance(base_cases, dict):
+        # Se diferencian las formas de generar servicios 
+        if not isinstance(base_cases, list):
             base_areas = self.generate_base_services(base_cases, nbase)
         else:
             base_areas = set()
@@ -239,7 +238,8 @@ class InstanceGenerator:
                 self.generate_services(p, e)
 
         # Aprovechamos de calcular gamma
-        self.gamma = self.pond * self.beta
+        self.gamma = self.beta
+        self.beta = self.beta / 10
 
         # Calculamos rating
         register = global_register(self.services, self.parents, lawyers)
@@ -343,7 +343,8 @@ class InstanceGenerator:
                 self.generate_services(p, e)
 
         # Aprovechamos de calcular gamma
-        self.gamma = self.pond * self.beta
+        self.gamma = self.beta
+        self.beta = self.beta / 10
 
         # Calculamos rating
         register = global_register(self.services, self.parents, lawyers)

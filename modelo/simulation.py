@@ -38,7 +38,6 @@ def generate_cases(services, cases, ncases):
         base_cases.append(case)
     return base_cases
 
-
 class ILModel:
     def __init__(self, instance):
 
@@ -47,7 +46,7 @@ class ILModel:
         self.charge_instance(instance)
 
     def charge_instance(self, ins):
-        '''
+        ''' 
         Función que carga una instancia y genera todas las restricciones
         y variables del modelo
         '''
@@ -70,8 +69,7 @@ class ILModel:
         self.model.update()
 
         #### FUNCIÓN OBJETIVO ####
-        obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) - ins.gamma * self.n[s] for s in range(ins.S_0)) + (1/ins.E) * quicksum((ins.lambd ** ins.sp[s]) * (self.R[s] - ins.beta * (self.y[s] - 1) -
-                                                                                                                                                                  ins.gamma * self.n[s]) for s in range(ins.S_0, ins.S))
+        obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) - ins.gamma * self.n[s] for s in range(ins.S_0)) + (1/ins.E) * quicksum((ins.lambd ** ins.sp[s]) * (self.R[s] - ins.beta * (self.y[s] - 1) - ins.gamma * self.n[s]) for s in range(ins.S_0, ins.S))
 
         self.model.setObjective(obj, GRB.MAXIMIZE)
 
@@ -146,8 +144,9 @@ class ILModel:
 if __name__ == "__main__":
     # Cargamos datos
     services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
-    ponds = [2, 5, 10, 20, 30]
+    ponds = [10]
     for pond in ponds:
+        print(f'POND = {pond}')
         # Inicializamos estructuras de datos
         # Modelo
         rp = np.zeros(shape=(REPS, WEEKS))
@@ -163,7 +162,7 @@ if __name__ == "__main__":
         np.random.seed(7)
 
         for rep in range(REPS):
-            print(f'COMENZANDO {rep + 1}\n')
+            print(f'COMENZANDO REP {rep + 1}\n')
 
             # Día 0 completado
             comp = False
@@ -201,9 +200,22 @@ if __name__ == "__main__":
 
                     # Número de casos a generar
                     ncases = np.random.poisson(RATE / 5)
+                    
                     if ncases == 0:
+                        if arrival == 5 and comp:
+                            d = {}
+                            d_greedy = {}
+                            for (l, p) in tl:
+                                if p >= 2:
+                                    d[l, p - 1] = tl[l, p]
+                            for (l, p) in tl_greedy:
+                                if p >= 2:
+                                    d_greedy[l, p - 1] = tl_greedy[l, p]
+                            tl = d
+                            tl_greedy = d_greedy
                         print('\n')
                         continue
+
                     # Generamos servicios base
                     base_cases = generate_cases(services, cases, ncases)
 
@@ -231,7 +243,7 @@ if __name__ == "__main__":
                     # Modelo
                     print(f'Corriendo modelo propuesto')
                     a, tl, rating = model.run_mip()
-
+                    print(a)
                     for s in range(instance.S_0):
                         if a[s]:
                             for l in a[s]:
@@ -244,6 +256,7 @@ if __name__ == "__main__":
                     # Greedy
                     print(f'Corriendo modelo greedy\n')
                     a_greedy, tl_greedy, rating_greedy = model_greedy.run_mip()
+                    print(a_greedy)
                     for s in range(instance.S_0):
                         if a_greedy[s]:
                             for l in a_greedy[s]:
@@ -254,6 +267,7 @@ if __name__ == "__main__":
                             na_greedy += 1
 
                     # Modificamos tl y tl_greedy para la siguiente semana
+
                     if arrival == 5:
                         d = {}
                         d_greedy = {}
@@ -290,17 +304,17 @@ if __name__ == "__main__":
                     fssa_greedy[rep, w] = None
 
         # Guardamos generados en pickle
-        with open(f'resultados/lambda{pond}/rp.pickle', 'wb') as file:
+        with open(f'resultados/pond{pond}/rp.pickle', 'wb') as file:
             pickle.dump(rp, file)
-        with open(f'resultados/lambda{pond}/rp_greedy.pickle', 'wb') as file:
+        with open(f'resultados/pond{pond}/rp_greedy.pickle', 'wb') as file:
             pickle.dump(rp_greedy, file)
 
-        with open(f'resultados/lambda{pond}/nasp.pickle', 'wb') as file:
+        with open(f'resultados/pond{pond}/nasp.pickle', 'wb') as file:
             pickle.dump(nasp, file)
-        with open(f'resultados/lambda{pond}/nasp_greedy.pickle', 'wb') as file:
+        with open(f'resultados/pond{pond}/nasp_greedy.pickle', 'wb') as file:
             pickle.dump(nasp_greedy, file)
 
-        with open(f'resultados/lambda{pond}/fssa.pickle', 'wb') as file:
+        with open(f'resultados/pond{pond}/fssa.pickle', 'wb') as file:
             pickle.dump(fssa, file)
-        with open(f'resultados/lambda{pond}/fssa_greedy.pickle', 'wb') as file:
+        with open(f'resultados/pond{pond}/fssa_greedy.pickle', 'wb') as file:
             pickle.dump(fssa_greedy, file)

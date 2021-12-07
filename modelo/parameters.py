@@ -13,15 +13,15 @@ NSCENARIOS = 30
 BIG_M = 10**8
 
 # Tasa de llegada de casos por semana laboral
-RATE = 1.25
+RATE = 3
 
 # Ponderador relación beta y gamma
-POND = 2
+POND = 20
 
 #### Parámetros de simulación ####
 
 # Número de repeticiones
-REPS = 100
+REPS = 1
 
 # Horizonte de tiempo en semanas laborales
-WEEKS = 50
+WEEKS = 16

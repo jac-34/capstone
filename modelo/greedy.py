@@ -100,21 +100,21 @@ class GreedyInstanceGenerator:
                 lawyers_to_areas[area].append(row.id)
 
         # Se pobla lista de abogados a considerar
-        L = set()
+
         for area in lawyers_to_areas:
             if area in base_areas:
                 for l in lawyers_to_areas[area]:
-                    L.add(l)
-                    for p in range(1, self.P + 1):
-                        self.d[l, p] = list(
-                            self.lawyers[self.lawyers["id"] == l]["hb"])[0]
-        self.L = list(L)
+                    if l not in self.L:
+                        self.L.append(l)
+                        for p in range(1, self.P + 1):
+                            self.d[l, p] = list(
+                                self.lawyers[self.lawyers["id"] == l]["hb"])[0]
 
         # Se identifican abogados
         lawyers = self.lawyers[self.lawyers['id'].isin(self.L)]
 
         # Aprovechamos de calcular gamma
-        self.gamma = self.pond * self.beta
+        self.gamma = (self.S_0 + 1) * self.beta
 
         # Calculamos rating
         register = global_register(self.services, self.parents, lawyers)
@@ -168,22 +168,21 @@ class GreedyInstanceGenerator:
                 lawyers_to_areas[area].append(row.id)
 
         # Se pobla lista de abogados a considerar
-        L = set()
         for area in lawyers_to_areas:
             if area in base_areas:
                 for l in lawyers_to_areas[area]:
-                    L.add(l)
-                    for p in range(1, self.P + 1):
-                        if (l, p) not in self.d:
-                            self.d[l, p] = list(
-                                self.lawyers[self.lawyers["id"] == l]["hb"])[0]
-        self.L = list(l)
+                    if l not in self.L:
+                        self.L.append(l)
+                        for p in range(1, self.P + 1):
+                            if (l, p) not in self.d:
+                                self.d[l, p] = list(
+                                    self.lawyers[self.lawyers["id"] == l]["hb"])[0]
 
         # Se actualiza tabla de abogados
         lawyers = self.lawyers[self.lawyers['id'].isin(self.L)]
 
         # Aprovechamos de calcular gamma
-        self.gamma = self.pond * self.beta
+        self.gamma = (self.S_0 + 1) * self.beta
 
         # Calculamos rating
         register = global_register(self.services, self.parents, lawyers)
@@ -259,7 +258,7 @@ class GreedyILModel:
         for l in ins.L:
             for p in range(1, ins.P + 1):
                 self.model.addConstr(
-                    self.z[l, p] == ins.d[l, p] - quicksum(self.t[l, s] for s in ins.active[0, p]))
+                    self.z[l, p] == ins.d[l, p] - quicksum(self.t[l, s] for s in ins.active[p]))
 
         # R7
         self.model.addConstrs(self.R[s] == quicksum(
