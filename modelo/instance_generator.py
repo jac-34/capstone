@@ -238,8 +238,7 @@ class InstanceGenerator:
                 self.generate_services(p, e)
 
         # Aprovechamos de calcular gamma
-        self.gamma = self.beta
-        self.beta = self.beta / 10
+        self.gamma = (self.S / self.E) * self.beta
 
         # Calculamos rating
         register = global_register(self.services, self.parents, lawyers)
@@ -343,10 +342,11 @@ class InstanceGenerator:
                 self.generate_services(p, e)
 
         # Aprovechamos de calcular gamma
-        self.gamma = self.beta
-        self.beta = self.beta / 10
+        self.gamma = (self.S / self.E) * self.beta
 
         # Calculamos rating
         register = global_register(self.services, self.parents, lawyers)
         self.r = process_ratings(lawyers, list(
             set(self.ids)), self.parents, register, depth=100)
+
+
