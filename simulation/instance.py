@@ -141,11 +141,12 @@ class Instance:
                     self.beta = hweeks * weeks
                 for per in range(1, weeks + 1):
                     self.active[(0, per)].append(self.S_0)
-                if self.mode == 'saa':
-                    self.S += 1
                 self.S_0 += 1
             self.base_cases.append(c)
 
+        if self.mode == 'saa':
+            self.S = self.S_0
+            
         # Se dividen los abogados en áreas
         lawyers_to_areas = defaultdict(list)
         for row in self.lawyers.itertuples(index=False):

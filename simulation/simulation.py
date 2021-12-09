@@ -108,7 +108,7 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
                 a_saa, tl_saa, sr_saa, spr_saa = m_saa.run()
 
                 print(f'Corriendo modelo GREEDY...\n')
-                a_greedy, tl_greedy, sr_greedy, spr_greedy = m_saa.run()
+                a_greedy, tl_greedy, sr_greedy, spr_greedy = m_greedy.run()
 
                 # Guardamos info
                 assignments[rate][lamb]['saa'][w] = a_saa

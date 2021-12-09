@@ -38,8 +38,7 @@ class ILModel:
         #### HIPERPARÁMETROS DE GUROBI ####
         self.model.setParam('OutputFlag', 0)
         self.model.setParam('Presolve', 2)
-        self.model.setParam('TimeLimit', 40)
-
+        self.model.setParam('TimeLimit', 300)
         self.model.update()
 
         #### FUNCIÓN OBJETIVO ####
@@ -84,20 +83,16 @@ class ILModel:
         if ins.mode == 'saa':
             for l in ins.L:
                 for p in range(1, ins.P + 1):
-                    self.model.addConstr(
-                        self.z[l, 0, p] == ins.d[l, p] - quicksum(self.t[l, s] for s in ins.active[0, p]))
+                    self.model.addConstr(self.z[l, 0, p] == ins.d[l, p] - quicksum(self.t[l, s] for s in ins.active[0, p]))
                     for e in range(1, ins.E + 1):
-                        self.model.addConstr(
-                            self.z[l, e, p] == self.z[l, 0, p] - quicksum(self.t[l, s] for s in ins.active[e, p]))
+                        self.model.addConstr(self.z[l, e, p] == self.z[l, 0, p] - quicksum(self.t[l, s] for s in ins.active[e, p]))
         else:
             for l in ins.L:
                 for p in range(1, ins.P + 1):
-                    self.model.addConstr(self.z[l, p] == ins.d[l, p] -
-                                         quicksum(self.t[l, s] for s in ins.active[p]))
+                    self.model.addConstr(self.z[l, p] == ins.d[l, p] - quicksum(self.t[l, s] for s in ins.active[0, p]))
 
         # R7
-        self.model.addConstrs(self.R[s] == quicksum(
-            self.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L) for s in range(S))
+        self.model.addConstrs(self.R[s] == quicksum(self.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L) for s in range(S))
 
         # Guardamos la instancia para después
         self.instance = ins

@@ -50,7 +50,8 @@ if __name__ == "__main__":
     # Definimos lista de lambdas y rates a testear
     lambdas = [0.2, 0.4, 0.6, 0.8, 0.9]
     rates = [1.25, 3, 4]
-
+    # lambdas = [0.8]
+    # rates = [3]
     assignments, time_lawyers, sr, spr = parameters_testing(
         lambdas, WEEKS, rates, services, parents, cases, unfiltered_lawyers)
 
@@ -74,11 +75,11 @@ if __name__ == "__main__":
     with open(f'results/assignments.pickle', 'wb') as file:
         pickle.dump(assignments, file)
 
-    with open(f'results/assignments.pickle', 'wb') as file:
+    with open(f'results/time_lawyers.pickle', 'wb') as file:
         pickle.dump(time_lawyers, file)
 
-    with open(f'results/assignments.pickle', 'wb') as file:
+    with open(f'results/sr.pickle', 'wb') as file:
         pickle.dump(sr, file)
 
-    with open(f'results/assignments.pickle', 'wb') as file:
+    with open(f'results/spr.pickle', 'wb') as file:
         pickle.dump(spr, file)
