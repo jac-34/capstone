@@ -114,7 +114,7 @@ class Instance:
                     self.beta = hweeks * weeks
                 lim_sup = min(self.P, period + weeks)
                 for per in range(period + 1, lim_sup + 1):
-                    self.active[(scenario, per)].append(self.S)
+                    self.active[scenario, per].append(self.S)
                 self.S += 1
 
     def create_instance(self, base_cases):
@@ -140,7 +140,7 @@ class Instance:
                 if hweeks * weeks > self.beta:
                     self.beta = hweeks * weeks
                 for per in range(1, weeks + 1):
-                    self.active[(0, per)].append(self.S_0)
+                    self.active[0, per].append(self.S_0)
                 self.S_0 += 1
             self.base_cases.append(c)
 

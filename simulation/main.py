@@ -48,11 +48,9 @@ if __name__ == "__main__":
     services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
 
     # Definimos lista de lambdas y rates a testear
-    lambdas = [0.2, 0.4, 0.6, 0.8, 0.9]
-    rates = [1.25, 3, 4]
-    # lambdas = [0.8]
-    # rates = [3]
-    assignments, time_lawyers, sr, spr = parameters_testing(
+    lambdas = [0.2, 0.5, 0.8]
+    rates = [1.25, 4]
+    assignments, time_lawyers, sa, sr, spr = parameters_testing(
         lambdas, WEEKS, rates, services, parents, cases, unfiltered_lawyers)
 
     '''
@@ -63,12 +61,13 @@ if __name__ == "__main__":
         * mode: puede ser 'saa' (sample average aproximation) o 'greedy'
         * w: semana (va de 0 en adelante). Si no aparece alguna semana significa que dicha semana no llegaron servicios.
 
-    - assignments[lamb][rate][mode][w] es una lista donde el elemento i de dicha lista es una lista de los abogados asignados
+    - assignment[rate]][lamb][mode][w] es una lista donde el elemento i de dicha lista es una lista de los abogados asignados
       al servicio i (respecto a la semana w)
-    - time_lawyers[lamb][rate][mode][w] es un diccionario con key (l, p) donde el value es la cantidad de tiempo disponible del abogado
-      l en el periodo p (la semana w corresponde al periodo 0).
-    - sr[lamb][rate][mode][w] es una lista donde el elemento i es el rating del servicio i (respecto a la semana w)
+    - time_lawyers[rate][lamb][mode][w] es un diccionario con key l donde el value es el tiempo del abogado en la semana w DESPUÉS de la asignación.
+      En este diccionario w va de 1 en adelante, pues en la semana 0 no hay asignaciones.
+    - sr[rate][lamb][mode][w] es una lista donde el elemento i es el rating del servicio i (respecto a la semana w)
     - spr es lo mismo que sr, pero se consideran los castigos de beta y gamma.
+    - sa[rate][lamb][mode][w] es una lista donde el elemento i es la tupla (h, H) del servicio i
     '''
 
     # Guardamos archivos
@@ -77,9 +76,13 @@ if __name__ == "__main__":
 
     with open(f'results/time_lawyers.pickle', 'wb') as file:
         pickle.dump(time_lawyers, file)
+    
+    with open(f'results/sa.pickle', 'wb') as file:
+        pickle.dump(sa, file)
 
     with open(f'results/sr.pickle', 'wb') as file:
         pickle.dump(sr, file)
 
     with open(f'results/spr.pickle', 'wb') as file:
         pickle.dump(spr, file)
+    

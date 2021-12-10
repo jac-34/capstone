@@ -115,8 +115,10 @@ class ILModel:
         ins = self.instance
         # Asignaciones
         assignment = []
-        # Tiempo abogados
-        time_left = {}
+        # Tiempo que queda de abogados
+        time_left = ins.d
+        # Características de cada servicio (services atributes)
+        sa = []
         # Rating de servicios
         sr = []
         # Rating de servicios penalizado
@@ -133,6 +135,7 @@ class ILModel:
 
         for s in range(ins.S_0):
             a = []
+            sa.append((ins.h[s], ins.H[s]))
             sr.append(self.R[s].x)
             spr.append(self.R[s].x - ins.beta *
                        (self.y[s].x - 1) - ins.gamma * self.n[s].x)
@@ -141,4 +144,4 @@ class ILModel:
                     a.append(l)
             assignment.append(a)
 
-        return assignment, time_left, sr, spr
+        return assignment, time_left, sa, sr, spr

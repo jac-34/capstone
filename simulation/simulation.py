@@ -37,11 +37,14 @@ def generate_cases(services, cases, ncases):
         base_cases.append(case)
     return base_cases
 
+
 def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfiltered_lawyers):
     # Asignaciones
     assignments = {}
     # Tiempo abogados semana a semana
     time_lawyers = {}
+    # Características servicios
+    sa = {}
     # Rating servicios
     sr = {}
     # Rating penalizado servicios
@@ -50,6 +53,7 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
         print(f'COMENZANDO RATE = {rate}\n')
         assignments[rate] = {}
         time_lawyers[rate] = {}
+        sa[rate] = {}
         sr[rate] = {}
         spr[rate] = {}
         for lamb in lambdas:
@@ -60,6 +64,7 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
             print(f'COMENZANDO LAMBDA = {lamb}')
             assignments[rate][lamb] = {'saa': {}, 'greedy': {}}
             time_lawyers[rate][lamb] = {'saa': {}, 'greedy': {}}
+            sa[rate][lamb] = {'saa': {}, 'greedy': {}}
             sr[rate][lamb] = {'saa': {}, 'greedy': {}}
             spr[rate][lamb] = {'saa': {}, 'greedy': {}}
             # Semana 0 completada:
@@ -76,14 +81,22 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
                     if comp:
                         d_saa = {}
                         d_greedy = {}
+                        tla_saa = {}
+                        tla_greedy = {}
                         for (l, p) in tl_saa:
-                            if p >= 2:
+                            if p == 1:
+                                tla_saa[l] = tl_saa[l, p]
+                            else:
                                 d_saa[l, p - 1] = tl_saa[l, p]
                         for (l, p) in tl_greedy:
-                            if p >= 2:
+                            if p == 1:
+                                tla_greedy[l] = tl_greedy[l, p]
+                            else:
                                 d_greedy[l, p - 1] = tl_greedy[l, p]
                         tl_saa = d_saa
                         tl_greedy = d_greedy
+                        time_lawyers[rate][lamb]['saa'][w + 1] = tla_saa
+                        time_lawyers[rate][lamb]['greedy'][w + 1] = tla_greedy
                     print('Ups! No ha llegado ningún servicio\n')
                     continue
 
@@ -93,59 +106,61 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
                 if not comp:
                     instance_saa = Instance(cases, services, unfiltered_lawyers, parents, T_MIN, base_cases, nscenarios=NSCENARIOS,
                                             rate=rate, lambd=lamb, arrival=arrival)
-                    instance_greedy = Instance(cases, services, unfiltered_lawyers, parents, T_MIN, base_cases, mode='greedy')
+                    instance_greedy = Instance(
+                        cases, services, unfiltered_lawyers, parents, T_MIN, base_cases, mode='greedy')
                     m_saa = ILModel(instance_saa)
                     m_greedy = ILModel(instance_greedy)
                     comp = True
                 else:
-                    instance_saa.update_instance(tl_saa, base_cases, arrival=arrival)
-                    instance_greedy.update_instance(tl_greedy, base_cases, mode='greedy')
+                    instance_saa.update_instance(
+                        tl_saa, base_cases, arrival=arrival)
+                    instance_greedy.update_instance(
+                        tl_greedy, base_cases, mode='greedy')
                     m_saa.charge_instance(instance_saa)
                     m_greedy.charge_instance(instance_greedy)
 
                 # Corremos modelos
                 print(f'Corriendo modelo SAA...')
-                a_saa, tl_saa, sr_saa, spr_saa = m_saa.run()
+                a_saa, tl_saa, sa_saa, sr_saa, spr_saa = m_saa.run()
 
                 print(f'Corriendo modelo GREEDY...\n')
-                a_greedy, tl_greedy, sr_greedy, spr_greedy = m_greedy.run()
+                a_greedy, tl_greedy, sa_greedy, sr_greedy, spr_greedy = m_greedy.run()
 
                 # Guardamos info
                 assignments[rate][lamb]['saa'][w] = a_saa
                 assignments[rate][lamb]['greedy'][w] = a_greedy
 
-                time_lawyers[rate][lamb]['saa'][w] = tl_saa
-                time_lawyers[rate][lamb]['greedy'][w] = tl_greedy
+                sa[rate][lamb]['saa'][w] = sa_saa
+                sa[rate][lamb]['greedy'][w] = sa_greedy
 
                 sr[rate][lamb]['saa'][w] = sr_saa
                 sr[rate][lamb]['greedy'][w] = sr_greedy
-                
+
                 spr[rate][lamb]['saa'][w] = spr_saa
                 spr[rate][lamb]['greedy'][w] = spr_greedy
 
                 # Modificamos los tl's para la próxima semana
                 d_saa = {}
                 d_greedy = {}
+                tla_saa = {}
+                tla_greedy = {}
                 for (l, p) in tl_saa:
-                    if p >= 2:
+                    if p == 1:
+                        tla_saa[l] = tl_saa[l, p]
+                    else:
                         d_saa[l, p - 1] = tl_saa[l, p]
                 for (l, p) in tl_greedy:
-                    if p >= 2:
+                    if p == 1:
+                        tla_greedy[l] = tl_greedy[l, p]
+                    else:
                         d_greedy[l, p - 1] = tl_greedy[l, p]
                 tl_saa = d_saa
                 tl_greedy = d_greedy
-    
-    return assignments, time_lawyers, sr, spr
 
+                time_lawyers[rate][lamb]['saa'][w + 1] = tla_saa
+                time_lawyers[rate][lamb]['greedy'][w + 1] = tla_greedy
 
-
-                    
-
-
-
-
-
-
+    return assignments, time_lawyers, sa, sr, spr
 
 
 # if __name__ == "__main__":
@@ -167,7 +182,6 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
 #         rac_greedy = np.zeros(shape=(REPS, WEEKS))
 #         nasp_greedy = np.zeros(shape=(REPS, WEEKS))
 #         fssa_greedy = np.zeros(shape=(REPS, WEEKS))
-
 
 
 #         # Fijamos semilla para resultados replicables
@@ -214,7 +228,7 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
 
 #                     # Número de casos a generar
 #                     ncases = np.random.poisson(RATE / 5)
-                    
+
 #                     if ncases == 0:
 #                         if arrival == 5 and comp:
 #                             d = {}
@@ -287,7 +301,7 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
 #                             t_greedy += instance_greedy.h[s] * instance_greedy.H[s]
 #                         else:
 #                             na_greedy += 1
-                            
+
 #                     print('Rating acumulado\n')
 #                     print(ra_greedy[rep, w])
 
