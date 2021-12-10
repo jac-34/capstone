@@ -73,8 +73,7 @@ def select_existing_case(cases):
     idx = int(idx)
     return idx
 
-
-def show_alternatives(instance, lawyers_decod, specialties_decod):
+def show_alternatives(instance, save=True, idx="nada"):
     S0 = range(instance.S_0)
     services = {s: f"{instance.ids[s]} ({instance.h[s]} h/s)" for s in S0}
     columns = ["Lawyer", "Rating", "Time (h/s)"]
@@ -93,15 +92,24 @@ def show_alternatives(instance, lawyers_decod, specialties_decod):
 
     #h = list(map('\n'.join, df.columns.tolist()))
     #print(tabulate(df, tablefmt='psql', headers=h))
-    print(df.to_string())
+    print(df)
+    return df
+    if save:
+        df.to_excel(f"../datos/asignaciones/alternativas_caso_{idx}.xlsx ")
 
 
 class ILModel:
-    def __init__(self, instance):
+    def __init__(self, instance, name="modelo", mode='SAA'):
 
         # Al inicializarse por primera vez se carga la instancia
         # internamente
-        self.charge_instance(instance)
+        self.param = 5
+        self.name = name
+        self.mode = mode
+        if mode=='SAA':
+            self.charge_instance(instance)
+        else:
+            self.charge_greedy(instance)
 
     def charge_instance(self, ins):
         '''
@@ -114,7 +122,8 @@ class ILModel:
 
         #### VARIABLES ####
         self.model.x = Var(ins.L, range(ins.S), domain=Binary)
-        self.model.y = Var(range(ins.S), domain=NonNegativeIntegers)
+        self.model.y = Var(range(ins.S), domain=NonNegativeReals)
+        self.model.u = Var([0], domain=NonNegativeReals) #cantidad total de abogados asignados
         self.model.t = Var(ins.L, range(ins.S), domain=NonNegativeReals)
         self.model.z = Var(ins.L, range(ins.E + 1),
                            range(1, ins.P + 1), domain=NonNegativeReals)
@@ -122,8 +131,8 @@ class ILModel:
         self.model.R = Var(range(ins.S), domain=NonNegativeReals)
 
         #### FUNCIÓN OBJETIVO ####
-        self.model.obj = Objective(expr=sum(self.model.R[s] - ins.beta * (self.model.y[s] - 1) - ins.gamma * self.model.n[s] for s in range(ins.S_0)) +
-                                   (1/ins.E) * sum((ins.lambd ** ins.sp[s]) * (self.model.R[s] - ins.beta * (self.model.y[s] - 1) - ins.gamma * self.model.n[s])
+        self.model.obj = Objective(expr=sum(self.model.R[s] - self.param * ins.beta * self.model.u[0] - ins.gamma * self.model.n[s] for s in range(ins.S_0)) +
+                                   (1/ins.E) * sum((ins.lambd ** ins.sp[s]) * (self.model.R[s] - ins.beta * (self.model.y[s] - 1 + self.model.n[s]))
                                    for s in range(ins.S_0, ins.S)), sense=maximize)
 
         #### RESTRICCIONES ####
@@ -135,6 +144,7 @@ class ILModel:
         self.model.r5 = ConstraintList()
         self.model.r6 = ConstraintList()
         self.model.r7 = ConstraintList()
+        self.model.r8 = ConstraintList()
 
         for s in range(ins.S):
             # R1
@@ -170,16 +180,92 @@ class ILModel:
                 for e in range(1, ins.E + 1):
                     self.model.r6.add(
                         self.model.z[l, e, p] == self.model.z[l, 0, p] - sum(self.model.t[l, s] for s in ins.active[e, p]))
-
+        
         # R7 (definición de R)
         for s in range(ins.S):
             self.model.r7.add(self.model.R[s] == sum(
                 self.model.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L))
 
+        # R8 (Definicion de u)
+        self.model.r8.add(self.model.u[0] == sum(self.model.x[l, s] 
+                                              for l in ins.L for s in range(ins.S_0)))
+
         # Guardamos la instancia para después
         self.instance = ins
 
-    def run_mip(self, solver='gurobi', time_limit=50):
+    def charge_greedy(self, ins):
+        """
+        Crea un modelo greedy
+        """
+        #### MODELO ####
+        self.model = ConcreteModel()
+
+        #### VARIABLES ####
+        self.model.x = Var(ins.L, range(ins.S_0), domain=Binary)
+        self.model.y = Var(range(ins.S_0), domain=NonNegativeReals)
+        self.model.u = Var([0], domain=NonNegativeReals) #cantidad total de abogados asignados
+        self.model.t = Var(ins.L, range(ins.S_0), domain=NonNegativeReals)
+        self.model.n = Var(range(ins.S_0), domain=Binary)
+        self.model.R = Var(range(ins.S_0), domain=NonNegativeReals)
+
+        #### FUNCIÓN OBJETIVO ####
+        self.model.obj = Objective(expr=sum(self.model.R[s] - self.param * ins.beta * self.model.u[0] - ins.gamma * self.model.n[s] for s in range(ins.S_0)),
+                                   sense=maximize)
+
+        #### RESTRICCIONES ####
+
+        self.model.r1 = ConstraintList()
+        self.model.r2 = ConstraintList()
+        self.model.r3 = ConstraintList()
+        self.model.r4 = ConstraintList()
+        self.model.r5 = ConstraintList()
+        self.model.r6 = ConstraintList()
+        self.model.r7 = ConstraintList()
+        self.model.r8 = ConstraintList()
+
+        for s in range(ins.S_0):
+            # R1
+            self.model.r1.add(
+                sum(self.model.t[l, s] for l in ins.L) == ins.h[s] * (1 - self.model.n[s]))
+
+            # R4
+            self.model.r4.add(self.model.y[s] == sum(
+                self.model.x[l, s] for l in ins.L))
+
+            # R5
+            self.model.r5.add(1 - self.model.y[s] <= self.model.n[s])
+
+            for l in ins.L:
+                # R2
+                self.model.r2.add(
+                    ins.tmin * self.model.x[l, s] <= self.model.t[l, s])
+                self.model.r2.add(
+                    BIG_M * self.model.x[l, s] >= self.model.t[l, s])
+
+                # R3
+                if ins.r[l, ins.ids[s]] == 0:
+                    self.model.r3.add(self.model.x[l, s] == 0)
+
+                # R5
+                self.model.r5.add(self.model.n[s] <= 1 - self.model.x[l, s])
+
+        # R6
+        for l in ins.L:
+            self.model.r6.add(ins.d[l, 1] - sum(self.model.t[l, s] for s in ins.active[0, 1]) >= 0)
+            
+        # R7 (definición de R)
+        for s in range(ins.S_0):
+            self.model.r7.add(self.model.R[s] == sum(
+                self.model.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L))
+
+        # R8 (Definicion de u)
+        self.model.r8.add(self.model.u[0] == sum(self.model.x[l, s] 
+                                              for l in ins.L for s in range(ins.S_0)))
+
+        # Guardamos la instancia para después
+        self.instance = ins
+
+    def run_mip(self, solver='gurobi', time_limit=60):
         '''
         INPUT:
             solver: se especifica que solver utilizar. El default es gurobi
@@ -201,39 +287,139 @@ class ILModel:
 
         opt.solve(self.model)
 
-        # Se construyen estructuras a retornar
-        ins = self.instance
-        assignment = []
-        time_left = {}
-        time_assigned = defaultdict(int)
-        services_rating = []
+        if self.mode == "SAA":
+            # Se construyen estructuras a retornar
+            ins = self.instance
+            assignment = []
+            time_left = {}
+            time_assigned = defaultdict(int)
+            services_rating = []
 
-        for l in ins.L:
-            for p in range(1, ins.P + 1):
-                time_left[l, p] = value(self.model.z[l, 0, p])
-            for s in range(ins.S_0):
-                if value(self.model.x[l, s]):
-                    for p in range(1, ins.H[s] + 1):
-                        time_assigned[l, p] += value(self.model.t[l, s])
-
-        for s in range(ins.S_0):
-            a = []
-            services_rating.append(value(self.model.R[s]))
             for l in ins.L:
-                if value(self.model.x[l, s]):
-                    a.append(l)
-            assignment.append(a)
+                for p in range(1, ins.P + 1):
+                    time_left[l, p] = value(self.model.z[l, 0, p])
+                for s in range(ins.S_0):
+                    if value(self.model.x[l, s]):
+                        for p in range(1, ins.H[s] + 1):
+                            time_assigned[l, p] += value(self.model.t[l, s])
 
-        return assignment, time_left, time_assigned, services_rating
+            for s in range(ins.S_0):
+                a = []
+                services_rating.append(value(self.model.R[s]))
+                for l in ins.L:
+                    if value(self.model.x[l, s]):
+                        a.append(l)
+                assignment.append(a)
+
+            return assignment, time_left, time_assigned, services_rating
+        else:
+            return None, None, None, None
+
+    def show_assignment(self):
+        S0 = range(self.instance.S_0)
+        services = {s: f"{self.instance.ids[s]} ({self.instance.h[s]} h/s)" 
+                    for s in S0}
+        columns = ["L", "R", "T (h/s)"]
+        index = pd.MultiIndex.from_product([services.values(), columns])
+        df = pd.DataFrame(columns=index)
+        for s in S0:
+            count = 0 # contador de abogados asignados a s
+            s_id = self.instance.ids[s]
+            for l in self.instance.L:
+                if value(self.model.x[l, s]) > 0:
+                    count += 1
+                    df.loc[count, services[s]] = (l, self.instance.r[l, s_id],
+                                            value(self.model.t[l, s]))
+
+        #h = list(map('\n'.join, df.columns.tolist()))
+        #print(tabulate(df, tablefmt='psql', headers=h))
+        print(" ", "-"*60, f"ASIGNACION {self.mode}", sep="\n")
+        print(df)
+        print("-"*60)
+        return df
+
+    def show_FO(self):
+        print(" ", "-"*60, f"DATOS DE LA SOLUCION {self.mode}", sep="\n")
+        not_assigned = sum([value(self.model.n[s]) for s in range(self.instance.S_0)])  
+        print(f"\n* Valor FO: {value(self.model.obj)}")
+        print(f"* Servicios base sin asignar: {not_assigned}")
+        print(f"* promedio de abogados asignados por servicio: {value(self.model.u[0]) / self.instance.S_0}")
+        base_rating = sum(value(self.model.R[s]) for s in range(self.instance.S_0))
+        print(f"* Rating total de la asignacion (sin penalizaciones): {base_rating}")
+        penalty = (sum(self.instance.gamma * value(value(self.model.n[s])) 
+                      for s in range(self.instance.S_0)) 
+                      + self.instance.beta * value(self.model.u[0]))
+        print(f"* Rating total de la asignacion (con penalizaciones): {base_rating - penalty}")
+        print("-"*60) 
+        print(self.instance.beta, self.instance.gamma)
+        data = pd.Series({"Rating": base_rating, 
+                          "Rating penalizado": base_rating - penalty, 
+                          "Servicios sin asignar": not_assigned, 
+                          "Promedio l/s": value(self.model.u[0]) / self.instance.S_0})
+        return data
+
+    def show_solution(self):
+        assignment = self.show_assignment()
+        data = self.show_FO()
+        return assignment, data
 
 
+        
 if __name__ == "__main__":
     services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
-    idx = select_existing_case(cases)
 
+    idx = select_existing_case(cases)
     random.seed(7)
     np.random.seed(7)
     instance = InstanceGenerator(cases, services, unfiltered_lawyers,
-                                 parents, NSCENARIOS, RATE, LAMBDA, T_MIN, POND, base_cases=idx)
+                                parents, NSCENARIOS, RATE, LAMBDA, T_MIN, POND, base_cases=idx)
 
-    show_alternatives(instance, lawyers_decod, specialties_decod)
+    S0 = instance.S_0
+    L = instance.L
+
+    alternatives = show_alternatives(instance, idx=idx)
+
+    print("\nCreando modelos...")
+    SAA_model = ILModel(instance, name=str(idx))
+    greedy_model = ILModel(instance, name=str(idx), mode="GREEDY")
+    print("Modelos creado.")
+    print("\nEjecutando SAA...")
+    SAA_model.run_mip()
+    print("Ejecucion terminada.")
+    print("\nEjecutando greedy...")
+    greedy_model.run_mip()
+    print("Ejecucion terminada.")
+    greedy_assignment, greedy_data = greedy_model.show_solution()
+    SAA_assignment, SAA_data = SAA_model.show_solution()
+    with pd.ExcelWriter(f'../asignaciones/caso_{idx}.xlsx') as writer:  
+        SAA_assignment.to_excel(writer, sheet_name='Asignacion SAA')
+        SAA_data.to_excel(writer, sheet_name="Datos asignacion SAA")
+        greedy_assignment.to_excel(writer, sheet_name='Asignacion greedy')
+        greedy_data.to_excel(writer, sheet_name="Datos asignacion greedy")
+        alternatives.to_excel(writer, sheet_name='Alternativas')
+
+    """
+    for idx in range(len(cases)):
+        random.seed(7)
+        np.random.seed(7)
+        instance = InstanceGenerator(cases, services, unfiltered_lawyers,
+                                    parents, NSCENARIOS, RATE, LAMBDA, T_MIN, POND, base_cases=idx)
+
+        S0 = instance.S_0
+        L = instance.L
+
+        alternatives = show_alternatives(instance, idx=idx)
+
+        print("\nCreando modelo...")
+        model = ILModel(instance, name=str(idx))
+        print("Modelo creado.")
+        print("\nEjecutando modelo...")
+        assignment, time_left, time_assigned, service_rating = model.run_mip()
+        print("Ejecucion terminada.")
+        assignment, data = model.show_solution()
+        with pd.ExcelWriter(f'../asignaciones/caso_{idx}.xlsx') as writer:  
+            assignment.to_excel(writer, sheet_name='Asignacion')
+            data.to_excel(writer, sheet_name="Datos asignacion")
+            alternatives.to_excel(writer, sheet_name='Alternativas')
+"""    
+
