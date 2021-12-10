@@ -103,7 +103,7 @@ class ILModel:
 
         # Al inicializarse por primera vez se carga la instancia
         # internamente
-        self.param = 5
+        self.param = 10
         self.name = name
         self.mode = mode
         if mode=='SAA':
@@ -131,9 +131,9 @@ class ILModel:
         self.model.R = Var(range(ins.S), domain=NonNegativeReals)
 
         #### FUNCIÓN OBJETIVO ####
-        self.model.obj = Objective(expr=sum(self.model.R[s] - self.param * ins.beta * self.model.u[0] - ins.gamma * self.model.n[s] for s in range(ins.S_0)) +
+        self.model.obj = Objective(expr=sum(self.model.R[s] - ins.gamma * self.model.n[s] for s in range(ins.S_0)) +
                                    (1/ins.E) * sum((ins.lambd ** ins.sp[s]) * (self.model.R[s] - ins.beta * (self.model.y[s] - 1 + self.model.n[s]))
-                                   for s in range(ins.S_0, ins.S)), sense=maximize)
+                                   for s in range(ins.S_0, ins.S)) - self.param * ins.beta * self.model.u[0], sense=maximize)
 
         #### RESTRICCIONES ####
 
@@ -209,7 +209,7 @@ class ILModel:
         self.model.R = Var(range(ins.S_0), domain=NonNegativeReals)
 
         #### FUNCIÓN OBJETIVO ####
-        self.model.obj = Objective(expr=sum(self.model.R[s] - self.param * ins.beta * self.model.u[0] - ins.gamma * self.model.n[s] for s in range(ins.S_0)),
+        self.model.obj = Objective(expr=sum(self.model.R[s] - ins.gamma * self.model.n[s] for s in range(ins.S_0))  - self.param * ins.beta * self.model.u[0],
                                    sense=maximize)
 
         #### RESTRICCIONES ####
