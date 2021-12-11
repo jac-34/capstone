@@ -97,13 +97,10 @@ def show_alternatives(instance, save=True, idx="nada"):
     if save:
         df.to_excel(f"../datos/asignaciones/alternativas_caso_{idx}.xlsx ")
 
-
 class ILModel:
     def __init__(self, instance, name="modelo", mode='SAA'):
-
         # Al inicializarse por primera vez se carga la instancia
         # internamente
-        self.param = 10
         self.name = name
         self.mode = mode
         if mode=='SAA':
@@ -123,7 +120,6 @@ class ILModel:
         #### VARIABLES ####
         self.model.x = Var(ins.L, range(ins.S), domain=Binary)
         self.model.y = Var(range(ins.S), domain=NonNegativeReals)
-        self.model.u = Var([0], domain=NonNegativeReals) #cantidad total de abogados asignados
         self.model.t = Var(ins.L, range(ins.S), domain=NonNegativeReals)
         self.model.z = Var(ins.L, range(ins.E + 1),
                            range(1, ins.P + 1), domain=NonNegativeReals)
@@ -131,9 +127,9 @@ class ILModel:
         self.model.R = Var(range(ins.S), domain=NonNegativeReals)
 
         #### FUNCIÓN OBJETIVO ####
-        self.model.obj = Objective(expr=sum(self.model.R[s] - ins.gamma * self.model.n[s] for s in range(ins.S_0)) +
+        self.model.obj = Objective(expr=sum(self.model.R[s] - ins.beta * (self.model.y[s] - 1 + self.model.n[s]) - ins.gamma * self.model.n[s] for s in range(ins.S_0)) +
                                    (1/ins.E) * sum((ins.lambd ** ins.sp[s]) * (self.model.R[s] - ins.beta * (self.model.y[s] - 1 + self.model.n[s]))
-                                   for s in range(ins.S_0, ins.S)) - self.param * ins.beta * self.model.u[0], sense=maximize)
+                                   for s in range(ins.S_0, ins.S)), sense=maximize)
 
         #### RESTRICCIONES ####
 
@@ -144,7 +140,6 @@ class ILModel:
         self.model.r5 = ConstraintList()
         self.model.r6 = ConstraintList()
         self.model.r7 = ConstraintList()
-        self.model.r8 = ConstraintList()
 
         for s in range(ins.S):
             # R1
@@ -186,10 +181,6 @@ class ILModel:
             self.model.r7.add(self.model.R[s] == sum(
                 self.model.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L))
 
-        # R8 (Definicion de u)
-        self.model.r8.add(self.model.u[0] == sum(self.model.x[l, s] 
-                                              for l in ins.L for s in range(ins.S_0)))
-
         # Guardamos la instancia para después
         self.instance = ins
 
@@ -203,13 +194,12 @@ class ILModel:
         #### VARIABLES ####
         self.model.x = Var(ins.L, range(ins.S_0), domain=Binary)
         self.model.y = Var(range(ins.S_0), domain=NonNegativeReals)
-        self.model.u = Var([0], domain=NonNegativeReals) #cantidad total de abogados asignados
         self.model.t = Var(ins.L, range(ins.S_0), domain=NonNegativeReals)
         self.model.n = Var(range(ins.S_0), domain=Binary)
         self.model.R = Var(range(ins.S_0), domain=NonNegativeReals)
 
         #### FUNCIÓN OBJETIVO ####
-        self.model.obj = Objective(expr=sum(self.model.R[s] - ins.gamma * self.model.n[s] for s in range(ins.S_0))  - self.param * ins.beta * self.model.u[0],
+        self.model.obj = Objective(expr=sum(self.model.R[s] -  ins.beta * (self.model.y[s] - 1 + self.model.n[s]) - ins.gamma * self.model.n[s] for s in range(ins.S_0)),
                                    sense=maximize)
 
         #### RESTRICCIONES ####
@@ -221,7 +211,6 @@ class ILModel:
         self.model.r5 = ConstraintList()
         self.model.r6 = ConstraintList()
         self.model.r7 = ConstraintList()
-        self.model.r8 = ConstraintList()
 
         for s in range(ins.S_0):
             # R1
@@ -250,17 +239,13 @@ class ILModel:
                 self.model.r5.add(self.model.n[s] <= 1 - self.model.x[l, s])
 
         # R6
-        for l in ins.L:
-            self.model.r6.add(ins.d[l, 1] - sum(self.model.t[l, s] for s in ins.active[0, 1]) >= 0)
+        #for l in ins.L:
+        #    self.model.r6.add(ins.d[l, 1] - sum(self.model.t[l, s] for s in ins.active[0, 1]) >= 0)
             
         # R7 (definición de R)
         for s in range(ins.S_0):
             self.model.r7.add(self.model.R[s] == sum(
                 self.model.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L))
-
-        # R8 (Definicion de u)
-        self.model.r8.add(self.model.u[0] == sum(self.model.x[l, s] 
-                                              for l in ins.L for s in range(ins.S_0)))
 
         # Guardamos la instancia para después
         self.instance = ins
@@ -340,27 +325,53 @@ class ILModel:
 
     def show_FO(self):
         print(" ", "-"*60, f"DATOS DE LA SOLUCION {self.mode}", sep="\n")
-        not_assigned = sum([value(self.model.n[s]) for s in range(self.instance.S_0)])  
+        not_assigned = sum([value(self.model.n[s]) for s in range(self.instance.S_0)])
+        total_assigned = 0
+        for s in range(self.instance.S_0):
+            for l in self.instance.L:
+                total_assigned += value(self.model.x[l, s])
         print(f"\n* Valor FO: {value(self.model.obj)}")
         print(f"* Servicios base sin asignar: {not_assigned}")
-        print(f"* promedio de abogados asignados por servicio: {value(self.model.u[0]) / self.instance.S_0}")
+        print(f"* promedio de abogados asignados por servicio: {value(total_assigned) / self.instance.S_0}")
         base_rating = sum(value(self.model.R[s]) for s in range(self.instance.S_0))
         print(f"* Rating total de la asignacion (sin penalizaciones): {base_rating}")
         penalty = (sum(self.instance.gamma * value(value(self.model.n[s])) 
                       for s in range(self.instance.S_0)) 
-                      + self.instance.beta * value(self.model.u[0]))
+                      + self.instance.beta * value(total_assigned))
         print(f"* Rating total de la asignacion (con penalizaciones): {base_rating - penalty}")
         print("-"*60) 
         print(self.instance.beta, self.instance.gamma)
         data = pd.Series({"Rating": base_rating, 
                           "Rating penalizado": base_rating - penalty, 
                           "Servicios sin asignar": not_assigned, 
-                          "Promedio l/s": value(self.model.u[0]) / self.instance.S_0})
+                          "Promedio l/s": value(total_assigned) / self.instance.S_0})
         return data
+
+    def get_scenarios(self):
+        """
+        Crea un diccionario con key escenario (int) y value una lista de servicios
+        que corresponden a ese escenario (ints).
+        """
+        active = self.instance.active
+        scenarios = {}
+        for e in range(1, self.instance.E + 1):
+            services = set()
+            for p in range(1, self.instance.P):
+                services.update(active[e, p])
+            scenarios[e] = sorted(list(services))
+        return scenarios
+
+
+    def show_future(self):
+        scenarios = self.get_scenarios()
+        print(" ", "-"*60, "DATOS ESCENARIOS FUTUROS", sep="\n")
+
 
     def show_solution(self):
         assignment = self.show_assignment()
         data = self.show_FO()
+        if self.mode=="SAA":
+            data2 = self.show_future()
         return assignment, data
 
 
