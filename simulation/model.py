@@ -43,9 +43,11 @@ class ILModel:
 
         #### FUNCIÓN OBJETIVO ####
         if ins.mode == 'saa':
-            obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) -
-                           ins.gamma * self.n[s] for s in range(ins.S_0)) + (1/ins.E) * quicksum((ins.lambd ** ins.sp[s]) * (self.R[s] -
-                                                                                                                             ins.beta * (self.y[s] + self.n[s] - 1)) for s in range(ins.S_0, ins.S))
+            # obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) -
+            #                ins.gamma * self.n[s] for s in range(ins.S_0)) + (1/ins.E) * quicksum((ins.lambd ** ins.sp[s]) * (self.R[s] -
+            #                                                                                                                  ins.beta * (self.y[s] + self.n[s] - 1)) for s in range(ins.S_0, ins.S))
+            obj = obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) -
+                           ins.gamma * self.n[s] for s in range(ins.S_0)) + (1/ins.E) * quicksum((ins.lambd ** ins.sp[s]) * self.R[s] for s in range(ins.S_0, ins.S))
         else:
             obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) -
                            ins.gamma * self.n[s] for s in range(ins.S_0))
