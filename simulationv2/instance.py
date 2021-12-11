@@ -24,7 +24,7 @@ class Instance:
         self.parents = parents
         # Número de servicios de los casos base
         self.S_0 = 0
-        # Horizonte de tiempo
+        # Número de periodos
         self.P = 0
         # Diccionario de servicios activos
         self.active = defaultdict(list)
@@ -53,6 +53,8 @@ class Instance:
             self.rate = kwargs['rate']
             # Número de servicios generados
             self.S = 0
+            # Horizonte de tiempo
+            self.Hor = 5
             # Periodo de cada servicio
             self.sp = {}
             # Factor de descuento temporal
@@ -112,7 +114,7 @@ class Instance:
                 self.sp[self.S] = period
                 if hweeks * weeks > self.beta:
                     self.beta = hweeks * weeks
-                lim_sup = min(self.P, period + weeks)
+                lim_sup = min(self.T, period + weeks)
                 for per in range(period + 1, lim_sup + 1):
                     self.active[scenario, per].append(self.S)
                 self.S += 1
@@ -206,10 +208,11 @@ class Instance:
             self.selected_cases = new_cases
 
             # Generamos todos los escenarios
+            self.T = min(self.P, self.Hor)
             for e in range(1, self.E + 1):
                 if self.frac:
                     self.generate_services(0, e)
-                for p in range(1, self.P + 1):
+                for p in range(1, self.T + 1):
                     self.generate_services(p, e)
 
         # Aprovechamos de calcular gamma
