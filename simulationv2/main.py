@@ -50,7 +50,7 @@ if __name__ == "__main__":
     # Definimos lista de lambdas y rates a testear
     # lambdas = [0.2, 0.5, 0.8]
     # rates = [1.25, 4]
-    lambdas = [0.8]
+    lambdas = [1]
     rates = [4]
     assignments, time_lawyers, sa, sr, spr = parameters_testing(
         lambdas, WEEKS, rates, services, parents, cases, unfiltered_lawyers)

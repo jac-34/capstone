@@ -4,7 +4,7 @@
 T_MIN = 1
 
 # Factor de descuento temporal
-LAMBDA = 1
+LAMBDA = 0.8
 
 # Número de escenarios a considerar
 NSCENARIOS = 80
