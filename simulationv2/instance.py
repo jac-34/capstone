@@ -54,7 +54,7 @@ class Instance:
             # Número de servicios generados
             self.S = 0
             # Horizonte de tiempo
-            self.Hor = 2
+            self.Hor = 4
             # Periodo de cada servicio
             self.sp = {}
             # Factor de descuento temporal

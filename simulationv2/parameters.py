@@ -7,7 +7,7 @@ T_MIN = 1
 LAMBDA = 0.8
 
 # Número de escenarios a considerar
-NSCENARIOS = 40
+NSCENARIOS = 80
 
 # Big M
 BIG_M = 10**8
