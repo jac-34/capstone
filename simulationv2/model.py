@@ -42,13 +42,13 @@ class ILModel:
 
         #### FUNCIÓN OBJETIVO ####
         if ins.mode == 'saa':
-            obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) -
-                           ins.gamma * self.n[s] for s in range(ins.S_0)) + (1/ins.E) * quicksum((ins.lambd ** ins.sp[s]) * (self.R[s] -
-                                                                                                                             ins.beta * (self.y[s] + self.n[s] - 1)) for s in range(ins.S_0, ins.S))
+            obj = quicksum(self.R[s] - ins.h[s] * ins.H[s] * (self.y[s] - 1) -
+                           (ins.S_0 + 1) * ins.h[s] * ins.H[s] * self.n[s] for s in range(ins.S_0)) + (1/ins.E) * quicksum((ins.lambd ** ins.sp[s]) * (self.R[s] -
+                                                                                                                             ins.h[s] * ins.H[s] * (self.y[s] + self.n[s] - 1)) for s in range(ins.S_0, ins.S))
             
         else:
-            obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) -
-                           ins.gamma * self.n[s] for s in range(ins.S_0))
+            obj = quicksum(self.R[s] - ins.h[s] * ins.H[s] * (self.y[s] - 1) -
+                           (ins.S_0 + 1) * ins.h[s] * ins.H[s] * self.n[s] for s in range(ins.S_0))
 
         self.model.setObjective(obj, GRB.MAXIMIZE)
 
@@ -131,8 +131,8 @@ class ILModel:
             a = []
             sa.append((ins.h[s], ins.H[s]))
             sr.append(self.R[s].x)
-            spr.append(self.R[s].x - ins.beta *
-                       (self.y[s].x - 1) - ins.gamma * self.n[s].x)
+            spr.append(self.R[s].x - ins.h[s] * ins.H[s] *
+                       (self.y[s].x - 1) - (ins.S_0 + 1) * ins.h[s] * ins.H[s] * self.n[s].x)
             for l in ins.L:
                 if self.x[l, s].x:
                     a.append(l)

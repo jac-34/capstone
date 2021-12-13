@@ -212,7 +212,7 @@ class Instance:
             for e in range(1, self.E + 1):
                 if self.frac:
                     self.generate_services(0, e)
-                for p in range(1, self.T + 1):
+                for p in range(1, self.T):
                     self.generate_services(p, e)
 
         # Aprovechamos de calcular gamma
