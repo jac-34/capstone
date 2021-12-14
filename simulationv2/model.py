@@ -1,3 +1,4 @@
+from collections import defaultdict
 from parameters import *
 from gurobipy import *
 
@@ -22,15 +23,16 @@ class ILModel:
         else:
             S = ins.S_0
 
-
         #### VARIABLES ####
         self.x = self.model.addVars(ins.L, range(S), vtype=GRB.BINARY)
         self.y = self.model.addVars(range(S), vtype=GRB.INTEGER)
         self.t = self.model.addVars(ins.L, range(S), vtype=GRB.CONTINUOUS)
-        self.u = self.model.addVars(ins.L, range(1, ins.P + 1), vtype=GRB.CONTINUOUS)
+        self.u = self.model.addVars(ins.L, range(
+            1, ins.P + 1), vtype=GRB.CONTINUOUS)
         if ins.mode == 'saa':
-            self.z = self.model.addVars(ins.L, range(1, ins.E + 1), range(1, ins.T + 1), vtype=GRB.CONTINUOUS)
-    
+            self.z = self.model.addVars(ins.L, range(
+                1, ins.E + 1), range(1, ins.T + 1), vtype=GRB.CONTINUOUS)
+
         self.n = self.model.addVars(range(S), vtype=GRB.BINARY)
         self.R = self.model.addVars(range(S), vtype=GRB.CONTINUOUS)
 
@@ -44,8 +46,8 @@ class ILModel:
         if ins.mode == 'saa':
             obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) -
                            ins.gamma * self.n[s] for s in range(ins.S_0)) + (1/ins.E) * quicksum((ins.lambd ** ins.sp[s]) * (self.R[s] -
-                                                                                                                              ins.beta * (self.y[s] + self.n[s] - 1)) for s in range(ins.S_0, ins.S))
-            
+                                                                                                                             ins.beta * (self.y[s] + self.n[s] - 1)) for s in range(ins.S_0, ins.S))
+
         else:
             obj = quicksum(self.R[s] - ins.beta * (self.y[s] - 1) -
                            ins.gamma * self.n[s] for s in range(ins.S_0))
@@ -82,60 +84,57 @@ class ILModel:
         # R6
         for l in ins.L:
             for p in range(1, ins.P + 1):
-                self.model.addConstr(self.u[l, p] == ins.d[l, p] - quicksum(self.t[l, s] for s in ins.active[0, p]))
+                self.model.addConstr(
+                    self.u[l, p] == ins.d[l, p] - quicksum(self.t[l, s] for s in ins.active[0, p]))
 
         if ins.mode == 'saa':
             for l in ins.L:
                 for p in range(1, ins.T + 1):
                     for e in range(1, ins.E + 1):
-                        self.model.addConstr(self.z[l, e, p] == self.u[l, p] - quicksum(self.t[l, s] for s in ins.active[e, p]))
+                        self.model.addConstr(
+                            self.z[l, e, p] == self.u[l, p] - quicksum(self.t[l, s] for s in ins.active[e, p]))
 
         # R7
-        self.model.addConstrs(self.R[s] == quicksum(self.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L) for s in range(S))
+        self.model.addConstrs(self.R[s] == quicksum(
+            self.t[l, s] * ins.H[s] * ins.r[l, ins.ids[s]] for l in ins.L) for s in range(S))
 
         # Guardamos la instancia para después
         self.instance = ins
 
-    def run(self):
+    def run(self, dic, w):
         '''
         OUTPUT:
-            assignment: lista de listas tal que assignment[i] es una lista de abogados 
-                        asignados al servicio i
-            time_left: diccionario de key (l, p) y value tiempo en horas
+            tl: diccionario de key (l, p) y value tiempo en horas
                        disponibles del abogado l en el periodo p
-            sr: lista tal que sr[i] es el rating de asignación del
-                servicio i
-            spr: lista tal que spr[i] es el rating penalizado de asignación
-                 del servicio i.
         '''
         self.model.optimize()
-
-        # Se construyen estructuras a retornar
         ins = self.instance
-        # Asignaciones
-        assignment = []
+
         # Tiempo que queda de abogados
-        time_left = ins.d
-        # Características de cada servicio (services atributes)
-        sa = []
-        # Rating de servicios
-        sr = []
-        # Rating de servicios penalizado
-        spr = []
+        tl = ins.d
+
+        ### SE ALMACENA INFORMACIÓN DE DIC ###
+        # Número de servicios generados
+        dic['ns'][w] = ins.S_0
 
         for l in ins.L:
             for p in range(1, ins.P + 1):
-                time_left[l, p] = self.u[l, p].x
+                tl[l, p] = self.u[l, p].x
 
         for s in range(ins.S_0):
-            a = []
-            sa.append((ins.h[s], ins.H[s]))
-            sr.append(self.R[s].x)
-            spr.append(self.R[s].x - ins.h[s] * ins.H[s] *
-                       (self.y[s].x - 1) - (ins.S_0 + 1) * ins.h[s] * ins.H[s] * self.n[s].x)
+            # Rating acumulado
+            dic['ra'][w] += self.R[s].x
+
+            # Tiempo demandado por área
+            dic['tda'][w][ins.service_area(ins.ids[s])] += ins.h[s]
+
+            la = 0
             for l in ins.L:
                 if self.x[l, s].x:
-                    a.append(l)
-            assignment.append(a)
-
-        return assignment, time_left, sa, sr, spr
+                    la += 1
+                    dic['tta'][l][w] += ins.H[s] * self.t[l, s].x
+            if la == 0:
+                dic['nb'][w] += 1
+            else:
+                dic['la'][w] += la
+        return tl

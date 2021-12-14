@@ -1,10 +1,13 @@
+from heapq import heapify
 import math
 import random
+from collections import defaultdict
 import numpy as np
 from parameters import *
 from gurobipy import *
 from model import ILModel
 from instance import Instance
+from heap import Heap
 
 
 def generate_service(services, id):
@@ -39,6 +42,27 @@ def generate_cases(services, cases, ncases):
 
 
 def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfiltered_lawyers):
+    '''
+    Función que genera una simulación de 'weeks' semanas y una repetición.
+    Se testean valores de parámetros como lambda y rate.
+    ----------------------------------------------------------------------
+    OUTPUT:
+        assignments, time_lawyers, sa, sr, spr son diccionarios anidados con las siguientes keys:
+
+            * lambd: lambda utilizado
+            * rate: rate de llegada de casos utilizado
+            * mode: puede ser 'saa' (sample average aproximation) o 'greedy'
+            * w: semana (va de 0 en adelante). Si no aparece alguna semana significa que dicha semana no llegaron servicios.
+
+        - assignment[rate]][lamb][mode][w] es una lista donde el elemento i de dicha lista es una lista de los abogados asignados
+          al servicio i (respecto a la semana w)
+        - time_lawyers[rate][lamb][mode][w] es un diccionario con key l donde el value es el tiempo del abogado en la semana w
+          DESPUÉS de la asignación. En este diccionario w va de 1 en adelante, pues se empieza a trabajar desde esa semana.
+        - sa[rate][lamb][mode][w] es una lista donde el elemento i es la tupla (h, H) del servicio i
+        - sr[rate][lamb][mode][w] es una lista donde el elemento i es el rating del servicio i (respecto a la semana w)
+        - spr es lo mismo que sr, pero se consideran los castigos de beta y gamma.
+
+    '''
     # Asignaciones
     assignments = {}
     # Tiempo abogados semana a semana
@@ -162,211 +186,138 @@ def parameters_testing(lambdas, weeks, rates, services, parents, cases, unfilter
 
     return assignments, time_lawyers, sa, sr, spr
 
-
-# if __name__ == "__main__":
-#     # Cargamos datos
-#     services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
-#     ponds = [10]
-#     for pond in ponds:
-#         print(f'POND = {pond}')
-#         # Inicializamos estructuras de datos
-#         # Modelo
-#         rp = np.zeros(shape=(REPS, WEEKS))
-#         ra = np.zeros(shape=(REPS, WEEKS))
-#         rac = np.zeros(shape=(REPS, WEEKS))
-#         nasp = np.zeros(shape=(REPS, WEEKS))
-#         fssa = np.zeros(shape=(REPS, WEEKS))
-#         # Greedy
-#         rp_greedy = np.zeros(shape=(REPS, WEEKS))
-#         ra_greedy = np.zeros(shape=(REPS, WEEKS))
-#         rac_greedy = np.zeros(shape=(REPS, WEEKS))
-#         nasp_greedy = np.zeros(shape=(REPS, WEEKS))
-#         fssa_greedy = np.zeros(shape=(REPS, WEEKS))
+def times_for_next_period(tl, tla):
+    '''
+    Función que retorna tiempos de abogados y modifica
+    array de tiempos de asignación
+    '''
+    # Tiempos que queda de abogados
+    time_lawyers = {}
+    for (l, p) in tl:
+        if p == 1:
+            tla[l] = tl[l, p]
+        else:
+            time_lawyers[l, p - 1] = tl[l, p]
+    return time_lawyers
 
 
-#         # Fijamos semilla para resultados replicables
-#         random.seed(7)
-#         np.random.seed(7)
+def simulation(services, parents, cases, unfiltered_lawyers, reps=REPS, weeks=WEEKS, lambd=LAMBDA, tmin=T_MIN, hor=HOR, rate=RATE, nscenarios=NSCENARIOS, seed=7, examples_size = 4):
+    '''
+    INPUT:
+        Los inputs a destacar son 'hor' (horizonte de tiempo simulación interna), 'seed' (semilla para resultados replicables)
+        y 'examples_size' que es la cantidad de repeticiones a guardar en las estructuras best_ratings, worst_ratings, best_botados,
+        worst_botados y regular_sample
+    OUTPUT:
+        - metrics: lista tal que metrics[rep] es un diccionario de métricas agregadas de la repetición rep. Las keys y values del 
+                   diccionario mencionados son:
+            * 'rep': rep
+            * 'saa': diccionario que guarda las métricas 'la' (número de abogados asignados), 'ns' (número de servicios generados), 'ra' (rating acumulado),
+                     'tta' (diccionario con keys índices de abogados y values el tiempo total asignado)
+            * 'greedy': lo mismo que antes, pero para greedy
+        - selection: es la lista [best_ratings, worst_ratings, best_botados, worst_botados, regular_sample]
+    '''
+    # Lista donde se guardan las métricas de cada repetición
+    metrics = []
+    numlawyers = len(unfiltered_lawyers)
 
-#         for rep in range(REPS):
-#             print(f'COMENZANDO REP {rep + 1}\n')
+    # Seteamos semilla
+    random.seed(seed)
+    np.random.seed(seed)
 
-#             # Día 0 completado
-#             comp = False
-#             for w in range(WEEKS):
-#                 print(f'COMENZANDO SEMANA {w + 1}')
-#                 # Servicios que han llegado
-#                 ns = 0
+    # Inicializamos heaps
+    best_ratings = Heap(lambda t: t[0], max_size=examples_size)
+    worst_ratings = Heap(lambda t: -t[0], max_size=examples_size)
 
-#                 # Abogados asignados
-#                 # Modelo
-#                 la = 0
-#                 # Greedy
-#                 la_greedy = 0
+    best_botados = Heap(lambda t: -t[0], max_size=examples_size)
+    worst_botados = Heap(lambda t: t[0], max_size=examples_size)
 
-#                 # Servicios sin asignar
-#                 # Modelo
-#                 na = 0
-#                 # Greedy
-#                 na_greedy = 0
+    choices = random.sample(range(reps), examples_size)
+    regular_sample = []
 
-#                 # Rating acumulado de servicios
-#                 # Modelo
-#                 r = 0
-#                 # Greedy
-#                 r_greedy = 0
+    for rep in range(reps):
+        # Inicializamos estructuras de datos a utilizar
+        agregated_metric = {'rep': rep, 'saa': {'la': 0, 'ns': 0, 'nb': 0, 'ra': 0, 'tta': 0},
+                            'greedy': {'la': 0, 'ns': 0, 'nb': 0, 'ra': 0, 'tta': 0}}
+        metric = {'rep': rep, 'saa': {'la': [0] * weeks, 'ns': [0] * weeks, 'nb': [0] * weeks, 'ra': [0] * weeks,
+                  'tta': np.zeros(shape=(numlawyers, weeks)), 'tla': np.full(shape=(weeks + 1, numlawyers), fill_value=np.nan),
+                  'tda': {w: defaultdict(int) for w in range(weeks)}}, 'greedy': {'la': [0] * weeks, 'ns': [0] * weeks, 'nb': [0] * weeks, 'ra': [0] * weeks,
+                  'tta': np.zeros(shape=(numlawyers, weeks)), 'tla': np.full(shape=(weeks + 1, numlawyers), fill_value=np.nan), 'tda': {w: defaultdict(int) for w in range(weeks)}}}
+        print(f'COMENZANDO REPETICIÓN {rep}\n')
 
-#                 # Tiempo acumulado servicios
-#                 # Modelo
-#                 t = 0
-#                 # Greedy
-#                 t_greedy = 0
+        # Ya han llegado servicios al menos una vez
+        comp = False
+        for w in range(weeks):
+            print(f'COMENZANDO SEMANA {w}')
+            # Se determina aleatoriamente en qué día
+            # se van a concentrar todos los casos
+            arrival = random.choice([1, 2, 3, 4, 5])
 
+            # Número de casos semanales
+            ncases = np.random.poisson(rate)
+            if ncases == 0:
+                if comp:
+                    tl_saa = times_for_next_period(tl_saa, metric['saa']['tla'][w + 1])
+                    tl_greedy = times_for_next_period(tl_greedy, metric['greedy']['tla'][w + 1])
+                print('Ups! No ha llegado ningún servicio\n')
+                continue
 
-#                 for arrival in [1, 2, 3, 4, 5]:
-#                     print(f'Comenzando día {arrival}')
+            # Generamos servicios base
+            base_cases = generate_cases(services, cases, ncases)
 
-#                     # Número de casos a generar
-#                     ncases = np.random.poisson(RATE / 5)
+            if not comp:
+                instance_saa = Instance(cases, services, unfiltered_lawyers, parents, tmin, base_cases, nscenarios=nscenarios,
+                                        rate=rate, lambd=lambd, arrival=arrival, hor=hor)
+                instance_greedy = Instance(cases, services, unfiltered_lawyers, parents, tmin, base_cases, mode='greedy')
+                m_saa = ILModel(instance_saa)
+                m_greedy = ILModel(instance_greedy)
+                comp = True
+            else:
+                instance_saa.update_instance(tl_saa, base_cases, arrival=arrival)
+                instance_greedy.update_instance(tl_greedy, base_cases, mode='greedy')
+                m_saa.charge_instance(instance_saa)
+                m_greedy.charge_instance(instance_greedy)
 
-#                     if ncases == 0:
-#                         if arrival == 5 and comp:
-#                             d = {}
-#                             d_greedy = {}
-#                             for (l, p) in tl:
-#                                 if p >= 2:
-#                                     d[l, p - 1] = tl[l, p]
-#                             for (l, p) in tl_greedy:
-#                                 if p >= 2:
-#                                     d_greedy[l, p - 1] = tl_greedy[l, p]
-#                             tl = d
-#                             tl_greedy = d_greedy
-#                         continue
+            # Corremos modelos
+            print(f'Corriendo modelo SAA...')
+            tl_saa = m_saa.run(metric['saa'], w)
 
-#                     # Generamos servicios base
-#                     base_cases = generate_cases(services, cases, ncases)
+            print(f'Corriendo modelo GREEDY...\n')
+            tl_greedy = m_greedy.run(metric['greedy'], w)
 
-#                     if not comp:
-#                         # Creamos las instancias
-#                         instance = InstanceGenerator(cases, services, unfiltered_lawyers, parents,
-#                                                     NSCENARIOS, RATE, LAMBDA, T_MIN, pond, base_cases=base_cases, arrival=arrival)
-#                         instance_greedy = GreedyInstanceGenerator(
-#                             services, unfiltered_lawyers, parents, T_MIN, pond, base_cases)
-#                         # Creamos los modelos
-#                         model = ILModel(instance)
-#                         model_greedy = GreedyILModel(instance_greedy)
-#                         comp = True
-#                     else:
-#                         # Actualizamos si las instancias y modelos fueron creados anteriormente
-#                         instance.reboot_instance(tl, base_cases, arrival)
-#                         instance_greedy.reboot_instance(tl_greedy, base_cases)
-#                         model.charge_instance(instance)
-#                         model_greedy.charge_instance(instance_greedy)
+            # Actualizamos vector de tiempo
+            tl_saa = times_for_next_period(tl_saa, metric['saa']['tla'][w + 1])
+            tl_greedy = times_for_next_period(tl_greedy, metric['greedy']['tla'][w + 1])
+        
+        # Calculamos valores agregados
+        # Para saa:
+        agregated_metric['saa']['la'] = sum(metric['saa']['la'])
+        agregated_metric['saa']['ns'] = sum(metric['saa']['ns'])
+        agregated_metric['saa']['nb'] = sum(metric['saa']['nb'])
+        agregated_metric['saa']['ra'] = sum(metric['saa']['ra'])
+        agregated_metric['saa']['tta'] = np.sum(metric['saa']['tta'], axis=1)
 
-#                     # Actualizamos servicios que han llegado
-#                     ns += instance.S_0
+        # Para greedy
+        agregated_metric['greedy']['la'] = sum(metric['greedy']['la'])
+        agregated_metric['greedy']['ns'] = sum(metric['greedy']['ns'])
+        agregated_metric['greedy']['nb'] = sum(metric['greedy']['nb'])
+        agregated_metric['greedy']['ra'] = sum(metric['greedy']['ra'])
+        agregated_metric['greedy']['tta'] = np.sum(metric['greedy']['tta'], axis=1)
 
-#                     # Corremos modelos y extraemos info
-#                     # Modelo
-#                     print(f'Corriendo modelo propuesto')
-#                     a, tl, rating = model.run_mip()
-#                     print(a)
-#                     for s in range(instance.S_0):
-#                         if a[s]:
-#                             for l in a[s]:
-#                                 la += 1
-#                             r += rating[s]
-#                             ra[rep, w] += rating[s]
-#                             rac[rep, w] += rating[s] - instance.beta * (model.y[s].x - 1) - instance.gamma * model.n[s].x
-#                             t += instance.h[s] * instance.H[s]
-#                         else:
-#                             na += 1
-#                     print('Rating acumulado\n')
-#                     print(ra[rep, w])
+        # Almacenamos agregated_metric en metrics
+        metrics.append(agregated_metric)
+        
+        # Guardamos repeticiones seleccionadas
+        best_ratings.push((agregated_metric['saa']['ra'], metric))
+        worst_ratings.push((agregated_metric['saa']['ra'], metric))
+        best_botados.push((agregated_metric['saa']['nb'], metric))
+        worst_botados.push((agregated_metric['saa']['nb'], metric))
 
-#                     print('Rating acumulado castigado\n')
-#                     print(ra_greedy[rep, w])
+        if rep in choices:
+            regular_sample.append(metric)
 
-#                     # Greedy
-#                     print(f'Corriendo modelo greedy\n')
-#                     a_greedy, tl_greedy, rating_greedy = model_greedy.run_mip()
-#                     print(a_greedy)
-#                     for s in range(instance.S_0):
-#                         if a_greedy[s]:
-#                             for l in a_greedy[s]:
-#                                 la_greedy += 1
-#                             r_greedy += rating_greedy[s]
-#                             ra_greedy[rep, w] += rating[s]
-#                             rac_greedy[rep, w] += rating[s] - instance.beta * (model.y[s].x - 1) - instance.gamma * model.n[s].x
-#                             t_greedy += instance_greedy.h[s] * instance_greedy.H[s]
-#                         else:
-#                             na_greedy += 1
-
-#                     print('Rating acumulado\n')
-#                     print(ra_greedy[rep, w])
-
-#                     print('Rating acumulado castigado\n')
-#                     print(rac_greedy[rep, w])
-
-#                     # Modificamos tl y tl_greedy para la siguiente semana
-
-#                     if arrival == 5:
-#                         d = {}
-#                         d_greedy = {}
-#                         for (l, p) in tl:
-#                             if p >= 2:
-#                                 d[l, p - 1] = tl[l, p]
-#                         for (l, p) in tl_greedy:
-#                             if p >= 2:
-#                                 d_greedy[l, p - 1] = tl_greedy[l, p]
-#                         tl = d
-#                         tl_greedy = d_greedy
-
-#                 # Guardamos datos
-#                 if ns:
-#                     # rating promedio servicios
-#                     if t:
-#                         rp[rep, w] = r / t
-#                     if t_greedy:
-#                         rp_greedy[rep, w] = r_greedy / t_greedy
-
-#                     # número de abogados asignados en promedio
-#                     nasp[rep, w] = la / ns
-#                     nasp_greedy[rep, w] = la_greedy / ns
-
-#                     # fracción de servicios sin asignar
-#                     fssa[rep, w] = na / ns
-#                     fssa_greedy[rep, w] = na_greedy / ns
-#                 else:
-#                     rp[rep, w] = None
-#                     rp_greedy[rep, w] = None
-#                     nasp[rep, w] = None
-#                     nasp_greedy[rep, w] = None
-#                     fssa[rep, w] = None
-#                     fssa_greedy[rep, w] = None
-
-#         # Guardamos generados en pickle
-#         with open(f'resultados/pond{pond}/rp.pickle', 'wb') as file:
-#             pickle.dump(rp, file)
-#         with open(f'resultados/pond{pond}/rp_greedy.pickle', 'wb') as file:
-#             pickle.dump(rp_greedy, file)
-
-#         with open(f'resultados/pond{pond}/nasp.pickle', 'wb') as file:
-#             pickle.dump(nasp, file)
-#         with open(f'resultados/pond{pond}/nasp_greedy.pickle', 'wb') as file:
-#             pickle.dump(nasp_greedy, file)
-
-#         with open(f'resultados/pond{pond}/fssa.pickle', 'wb') as file:
-#             pickle.dump(fssa, file)
-#         with open(f'resultados/pond{pond}/fssa_greedy.pickle', 'wb') as file:
-#             pickle.dump(fssa_greedy, file)
-
-#         with open(f'resultados/pond{pond}/ra.pickle', 'wb') as file:
-#             pickle.dump(fssa, file)
-#         with open(f'resultados/pond{pond}/ra_greedy.pickle', 'wb') as file:
-#             pickle.dump(fssa_greedy, file)
-
-#         with open(f'resultados/pond{pond}/rac.pickle', 'wb') as file:
-#             pickle.dump(fssa, file)
-#         with open(f'resultados/pond{pond}/rac_greedy.pickle', 'wb') as file:
-#             pickle.dump(fssa_greedy, file)
+    best_ratings = [br[1] for br in best_ratings.heap]
+    worst_ratings = [wr[1] for wr in worst_ratings.heap]
+    best_botados = [bb[1] for bb in best_botados.heap]
+    worst_botados = [wb[1] for wb in worst_botados.heap]
+    selection = [best_ratings, worst_ratings, best_botados, worst_botados, regular_sample]
+    return metrics, selection

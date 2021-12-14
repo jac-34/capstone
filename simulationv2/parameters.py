@@ -4,7 +4,7 @@
 T_MIN = 1
 
 # Factor de descuento temporal
-LAMBDA = 0.8
+LAMBDA = 1.0
 
 # Número de escenarios a considerar
 NSCENARIOS = 80
@@ -12,13 +12,16 @@ NSCENARIOS = 80
 # Big M
 BIG_M = 10**8
 
+# Horizonte de tiempo
+HOR = 4
+
 # Tasa de llegada de casos por semana laboral
 RATE = 4
 
 #### Parámetros de simulación ####
 
 # Número de repeticiones
-REPS = 1
+REPS = 200
 
 # Horizonte de tiempo en semanas laborales
-WEEKS = 16
+WEEKS = 100

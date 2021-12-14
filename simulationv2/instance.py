@@ -14,7 +14,7 @@ class Instance:
 
         #### ATRIBUTOS COMUNES ####
 
-        # Lista de casos
+        # Lista de casos generados por IL
         self.cases = cases
         # DataFrame de servicios
         self.services = services
@@ -24,7 +24,7 @@ class Instance:
         self.parents = parents
         # Número de servicios de los casos base
         self.S_0 = 0
-        # Número de periodos
+        # Número de periodos (asociados con la duración de los casos base)
         self.P = 0
         # Diccionario de servicios activos
         self.active = defaultdict(list)
@@ -53,8 +53,8 @@ class Instance:
             self.rate = kwargs['rate']
             # Número de servicios generados
             self.S = 0
-            # Horizonte de tiempo
-            self.Hor = 4
+            # Horizonte de tiempo (llegan casos hasta la penúltima semana)
+            self.Hor = kwargs['hor']
             # Periodo de cada servicio
             self.sp = {}
             # Factor de descuento temporal
@@ -126,7 +126,7 @@ class Instance:
 
         # Se identifican las áreas y se guardan los
         # servicios base
-        
+
         base_areas = set()
         for case in base_cases:
             c = []
@@ -149,7 +149,7 @@ class Instance:
 
         if self.mode == 'saa':
             self.S = self.S_0
-            
+
         # Se dividen los abogados en áreas
         lawyers_to_areas = defaultdict(list)
         for row in self.lawyers.itertuples(index=False):
