@@ -372,6 +372,7 @@ class ILModel:
         data = self.show_FO()
         if self.mode=="SAA":
             data2 = self.show_future()
+            
         return assignment, data
 
 
