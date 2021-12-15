@@ -21,7 +21,7 @@ RATE = 4
 #### Parámetros de simulación ####
 
 # Número de repeticiones
-REPS = 200
+REPS = 100
 
 # Horizonte de tiempo en semanas laborales
 WEEKS = 100
