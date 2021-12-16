@@ -16,12 +16,12 @@ BIG_M = 10**8
 HOR = 4
 
 # Tasa de llegada de casos por semana laboral
-RATE = 4
+RATE = 3
 
 #### Parámetros de simulación ####
 
 # Número de repeticiones
-REPS = 100
+REPS = 52
 
 # Horizonte de tiempo en semanas laborales
-WEEKS = 100
+WEEKS = 52

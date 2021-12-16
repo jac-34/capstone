@@ -291,7 +291,7 @@ def simulation(services, parents, cases, unfiltered_lawyers, reps=REPS, weeks=WE
             # Actualizamos vector de tiempo
             tl_saa = times_for_next_period(tl_saa, metric['saa']['tla'][w + 1])
             tl_greedy = times_for_next_period(tl_greedy, metric['greedy']['tla'][w + 1])
-            print(f"Tiempo semana {w}: {round(time() - tw, 3)}\n")
+            print(f"Tiempo semana {w}: {round(time() - tw, 3)} s\n")
         # Calculamos valores agregados
         # Para saa:
         agregated_metric['saa']['la'] = sum(metric['saa']['la'])
@@ -319,12 +319,12 @@ def simulation(services, parents, cases, unfiltered_lawyers, reps=REPS, weeks=WE
         if rep in choices:
             regular_sample.append(metric)
         
-        print(f"Tiempo repeticion {rep}: {round(time() - tr)}\n")
+        print(f"Tiempo repeticion {rep}: {round(time() - tr, 3)} s\n")
 
     best_ratings = [br[1] for br in best_ratings.heap]
     worst_ratings = [wr[1] for wr in worst_ratings.heap]
     best_botados = [bb[1] for bb in best_botados.heap]
     worst_botados = [wb[1] for wb in worst_botados.heap]
     selection = [best_ratings, worst_ratings, best_botados, worst_botados, regular_sample]
-    print(f"Tiempo total simulacion: {round(time() - t0, 3)}")
+    print(f"Tiempo total simulacion: {round(time() - t0, 3)} s")
     return metrics, selection

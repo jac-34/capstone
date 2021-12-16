@@ -48,7 +48,7 @@ if __name__ == "__main__":
     services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
 
     # Corremos simulación
-    metrics, selection = simulation(services, parents, cases, unfiltered_lawyers, examples_size=1)
+    metrics, selection = simulation(services, parents, cases, unfiltered_lawyers, examples_size=2)
 
     # Guardamos archivos
     with open(f'simulation_results/metrics.pickle', 'wb') as file:
