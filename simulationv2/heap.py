@@ -29,7 +29,7 @@ class Heap:
     def siftup(self, i):
         p = self.parent(i)
         while i != 0 and self.key(self.heap[i]) < self.key(self.heap[p]):
-            self.swap(self, i, p)
+            self.swap(i, p)
             i = p
 
     def siftdown(self, i):
