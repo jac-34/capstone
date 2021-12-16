@@ -7,16 +7,16 @@ T_MIN = 1
 LAMBDA = 1.0
 
 # Número de escenarios a considerar
-NSCENARIOS = 80
+NSCENARIOS = 100
 
 # Big M
 BIG_M = 10**8
 
 # Horizonte de tiempo
-HOR = 4
+HOR = 3
 
 # Tasa de llegada de casos por semana laboral
-RATE = 3
+RATE = 2
 
 #### Parámetros de simulación ####
 

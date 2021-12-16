@@ -51,9 +51,9 @@ if __name__ == "__main__":
     metrics, selection = simulation(services, parents, cases, unfiltered_lawyers, examples_size=2)
 
     # Guardamos archivos
-    with open(f'simulation_results/metrics.pickle', 'wb') as file:
+    with open(f'simulation_results_jorgi/metrics.pickle', 'wb') as file:
         pickle.dump(metrics, file)
     
-    with open(f'simulation_results/selection.pickle', 'wb') as file:
+    with open(f'simulation_results_jorgi/selection.pickle', 'wb') as file:
         pickle.dump(selection, file)
     
