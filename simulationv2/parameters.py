@@ -13,15 +13,15 @@ NSCENARIOS = 100
 BIG_M = 10**8
 
 # Horizonte de tiempo
-HOR = 3
+HOR = 4
 
 # Tasa de llegada de casos por semana laboral
-RATE = 2
+RATE = 3
 
 #### Parámetros de simulación ####
 
 # Número de repeticiones
-REPS = 52
+REPS = 100
 
 # Horizonte de tiempo en semanas laborales
 WEEKS = 52
