@@ -1,11 +1,12 @@
-from collections import defaultdict
 from parameters import *
-from gurobipy import *
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
 
 
 class ILModel:
+    '''
+    Clase que crea el modelo
+    '''
     def __init__(self, instance):
 
         # Al inicializarse por primera vez se carga la instancia
@@ -16,6 +17,9 @@ class ILModel:
         ''' 
         Función que carga una instancia y genera todas las restricciones
         y variables del modelo
+        ---------------------------------------------------------------
+        INPUT:
+            ins: instancia de clase Instance
         '''
         #### MODELO ####
         self.model = ConcreteModel()
@@ -29,13 +33,12 @@ class ILModel:
         self.model.x = Var(ins.L, range(S), domain=Binary)
         self.model.y = Var(range(S), domain=NonNegativeReals)
         self.model.t = Var(ins.L, range(S), domain=NonNegativeReals)
+        self.model.u = Var(ins.L, range(1, ins.P + 1), domain=NonNegativeReals)
         if ins.mode == 'saa':
-            self.model.z = Var(ins.L, range(ins.E + 1),
-                               range(1, ins.P + 1), domain=NonNegativeReals)
-        else:
-            self.model.z = Var(ins.L, range(1, ins.P + 1), domain=NonNegativeReals)
-        self.model.n = Var(range(ins.S), domain=Binary)
-        self.model.R = Var(range(ins.S), domain=NonNegativeReals)
+            self.model.z = Var(ins.L, range(1, ins.E + 1),
+                               range(1, ins.T + 1), domain=NonNegativeReals)
+        self.model.n = Var(range(S), domain=Binary)
+        self.model.R = Var(range(S), domain=NonNegativeReals)
 
         #### FUNCIÓN OBJETIVO ####
         if ins.mode == 'saa':
@@ -82,16 +85,14 @@ class ILModel:
                 self.model.r5.add(self.model.n[s] <= 1 - self.model.x[l, s])
     
         # R6
+        for l in ins.L:
+            for p in range(1, ins.P + 1):
+                self.model.r6.add(self.model.u[l, p] == ins.d[l, p] - sum(self.model.t[l, s] for s in ins.active[0, p]))
         if ins.mode == 'saa':
             for l in ins.L:
-                for p in range(1, ins.P + 1):
-                    self.model.r6.add(self.model.z[l, 0, p] == ins.d[l, p] - sum(self.model.t[l, s] for s in ins.active[0, p]))
+                for p in range(1, ins.T + 1):
                     for e in range(1, ins.E + 1):
-                        self.model.r6.add(self.model.z[l, e, p] == self.model.z[l, 0, p] - sum(self.model.t[l, s] for s in ins.active[e, p]))
-        else:
-            for l in ins.L:
-                for p in range(1, ins.P + 1):
-                    self.model.r6.add(self.model.z[l, p] == ins.d[l, p] - sum(self.model.t[l, s] for s in ins.active[0, p]))
+                        self.model.r6.add(self.model.z[l, e, p] == self.model.u[l, p] - sum(self.model.t[l, s] for s in ins.active[e, p]))
 
         # R7
         for s in range(S):
@@ -100,8 +101,13 @@ class ILModel:
         # Guardamos la instancia para después
         self.instance = ins
 
-    def run(self, solver='gurobi', time_limit=300):
+    def run(self, solver='glpk', time_limit=300):
         '''
+        Función para correr el modelo después de creado
+        -----------------------------------------------------------------------------------------------------------------
+        INPUT:
+            solver: por defecto se selecciona glpk como solver, pero puede ser cualquiera dentro de las opciones de Pyomo
+            time_limit: límite de tiempo para resolver el modelo
         OUTPUT:
             assignment: lista de listas tal que assignment[i] es una lista de tuplas (l, t) asociadas al servicio
                         i (l corresponde al abogado y t al tiempo asignado)
@@ -109,8 +115,6 @@ class ILModel:
                        disponibles del abogado l en el periodo p
             sr: lista tal que sr[i] es el rating de asignación del
                 servicio i
-            spr: lista tal que spr[i] es el rating penalizado de asignación
-                 del servicio i
         '''
         
         #### ACÁ VA LA CONFIGURACIÓN DEL SOLVER ####
@@ -128,25 +132,17 @@ class ILModel:
         time_left = ins.d
         # Rating de servicios
         sr = []
-        # Rating de servicios penalizado
-        spr = []
 
-        if ins.mode == 'saa':
-            for l in ins.L:
-                for p in range(1, ins.P + 1):
-                    time_left[l, p] = value(self.model.z[l, 0, p])
-        else:
-            for l in ins.L:
-                for p in range(1, ins.P + 1):
-                    time_left[l, p] = value(self.model.z[l, p])
+        for l in ins.L:
+            for p in range(1, ins.P + 1):
+                time_left[l, p] = value(self.model.u[l, p])
 
         for s in range(ins.S_0):
             a = []
             sr.append(value(self.model.R[s]))
-            spr.append(value(self.model.R[s]) - ins.beta * (value(self.model.y[s]) - 1) - ins.gamma * value(self.model.n[s]))
             for l in ins.L:
                 if value(self.model.x[l, s]):
                     a.append((l, value(self.model.t[l, s])))
             assignment.append(a)
 
-        return assignment, time_left, sr, spr
+        return assignment, time_left, sr
