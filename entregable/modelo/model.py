@@ -1,7 +1,7 @@
 from parameters import *
 from pyomo.environ import *
 from pyomo.opt import SolverFactory
-
+import pickle
 
 class ILModel:
     '''
@@ -110,7 +110,8 @@ class ILModel:
             time_limit: límite de tiempo para resolver el modelo
         OUTPUT:
             assignment: lista de listas tal que assignment[i] es una lista de tuplas (l, t) asociadas al servicio
-                        i (l corresponde al abogado y t al tiempo asignado)
+                        i (l corresponde al abogado y t al tiempo asignado). Si la lista está vacía, entonces no se asignaron
+                        abogados.
             time_left: diccionario de key (l, p) y value tiempo en horas
                        disponibles del abogado l en el periodo p
             sr: lista tal que sr[i] es el rating de asignación del
@@ -146,3 +147,96 @@ class ILModel:
             assignment.append(a)
 
         return assignment, time_left, sr
+
+if __name__ == "__main__":
+    '''
+    Ejemplo de ejecución para mode=saa. Se generan casos ficticios para
+    probar el modelo. Para usar el solver 'glpk' se debe descargar
+    desde la página del solver o mediante pip.
+    '''
+    import random
+    import math
+    import pickle
+    from instance import Instance
+    from parameters import *
+
+    def load_data():
+        """
+        Función que carga los datos
+        ------------------------------------------------------------------------------
+        OUTPUT:
+            services: DataFrame con info de los servicios.
+            parents: lista donde parents[i] corresponde al "padre" del servicio de identificador i
+            cases: lista de listas donde cada lista tiene ints correspondiente a ids de los
+            servicios.
+            unfiltered_lawyers: DataFrame, con la info de los abogados.
+            specialties_decod: dict con key (s_id) y value str (el nombre del servicio s_id)
+            lawyers_decod: dict con key (l_id) y value str (el nombre del abogado l_id)
+        """
+        #### CARGAR DATOS ####
+        file = open('../datos/servicios.pickle', 'rb')
+        services = pickle.load(file)
+        file.close()
+
+        file = open('../datos/padres.pickle', 'rb')
+        parents = pickle.load(file)
+        file.close()
+
+        file = open('../datos/casos.pickle', 'rb')
+        cases = pickle.load(file)
+        file.close()
+
+        file = open('../datos/abogados.pickle', 'rb')
+        unfiltered_lawyers = pickle.load(file)
+        file.close()
+
+        file = open('../datos/decodificacion.pickle', 'rb')
+        specialties_decod = pickle.load(file)
+        file.close()
+
+        file = open('../datos/decod_nombres.pickle', 'rb')
+        lawyers_decod = pickle.load(file)
+        file.close()
+
+        return services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod
+
+    def generate_service(services, id):
+        '''
+        Se generan las características del servicio de identificador id
+        ------------------------------------------------------------------
+        OUTPUT:
+            hweeks: horas/semana que requiere el servicio de identificador id
+            weeks: horas que requiere el servicio
+        '''
+        row = services[services['id'] == id]
+        hweeks = random.triangular(
+            list(row['minimo hs'])[0], list(row['maximo hs'])[0], list(row['promedio hs'])[0])
+        weeks = random.triangular(
+            list(row['minimo s'])[0], list(row['maximo s'])[0], list(row['promedio s'])[0])
+        return math.ceil(hweeks), math.ceil(weeks)
+
+    def generate_cases(services, cases, ncases):
+        '''
+        Se generan los casos de un día determinado
+        '''
+        base_cases = []
+        for n in range(ncases):
+            mold = random.choice(cases)
+            case = {}
+            for id in mold:
+                hweeks, weeks = generate_service(services, id)
+                case[id] = (hweeks, weeks)
+            base_cases.append(case)
+        return base_cases
+
+    services, parents, cases, unfiltered_lawyers, specialties_decod, lawyers_decod = load_data()
+    base_cases = generate_cases(services, cases, 3)
+    instance = Instance(cases, services, unfiltered_lawyers, parents, T_MIN, base_cases, rate=RATE, hor=HOR, lambd=LAMBDA, arrival=3, nscenarios=NSCENARIOS)
+    model = ILModel(instance)
+    assignment, _, sr = model.run()
+    print(assignment)
+    print(sr)
+
+
+
+    
